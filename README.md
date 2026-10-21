@@ -16,7 +16,7 @@ BlockDock 是一个开源的第三方启动器和游戏环境管理器，适用�
 ## Minecraft 游戏文件
 
 BlockDock 不会重新分发 Minecraft 游戏文件。
-Minecraft 游戏下载来源默认未包含，可能通过用户配置的提供器提供。
+Minecraft 游戏下载来源默认未包含，可以通过用户配置的提供器提供。
 
 ## 免责声明
 
