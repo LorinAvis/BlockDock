@@ -14,14 +14,16 @@ if ((Test-Path -LiteralPath $taskPackageRoot) -or (Test-Path -LiteralPath $taskA
 
 & (Join-Path $taskRoot 'build.ps1')
 New-Item -ItemType Directory -Path $taskApp -Force | Out-Null
-dotnet publish (Join-Path $taskRoot 'src\BlockDock.csproj') -c Release -r $Runtime --self-contained true -o $taskApp -p:MSBuildEnableWorkloadResolver=false -p:RestoreConfigFile=(Join-Path $taskRoot 'src\NuGet.Config')
+$taskNugetConfig = Join-Path $taskRoot 'src\NuGet.Config'
+dotnet publish (Join-Path $taskRoot 'src\BlockDock.csproj') -c Release -r $Runtime --self-contained true -o $taskApp -p:MSBuildEnableWorkloadResolver=false "-p:RestoreConfigFile=$taskNugetConfig"
 if ($LASTEXITCODE -ne 0) { throw 'Self-contained publish failed.' }
 $taskBuilt = Join-Path $taskRoot 'artifacts\app'
 foreach ($taskName in @('LICENSE.txt','NOTICE.md')) { Copy-Item -LiteralPath (Join-Path $taskRoot $taskName) -Destination $taskApp }
 foreach ($taskName in @('licenses','engines')) { Copy-Item -LiteralPath (Join-Path $taskBuilt $taskName) -Destination $taskApp -Recurse }
 $taskSource = Join-Path $taskApp 'source'
 New-Item -ItemType Directory -Path $taskSource -Force | Out-Null
-git -C $taskRoot archive --format=zip --output=(Join-Path $taskSource "BlockDock-$taskVersion-source.zip") $taskCommit
+$taskSourceArchive = Join-Path $taskSource "BlockDock-$taskVersion-source.zip"
+git -C $taskRoot archive --format=zip "--output=$taskSourceArchive" $taskCommit
 if ($LASTEXITCODE -ne 0) { throw 'Corresponding source archive failed.' }
 $taskReadme = @"
 BlockDock $taskVersion - Windows x64
