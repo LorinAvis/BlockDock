@@ -50,7 +50,13 @@ foreach ($taskFile in $taskFiles) {
     if ($taskRelative -match '(^|/)(data|bin|obj|\.git|\.cache)/|\.log$|\.(appx|msix|msixvc|pfx|key)$|(^|/)(Packet\.dll|easytier-core\.exe|easytier-cli\.exe)$') { throw "Excluded release file: $taskRelative" }
 }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-[IO.Compression.ZipFile]::CreateFromDirectory($taskPackageRoot,$taskArchive,[IO.Compression.CompressionLevel]::Optimal,$false)
+$taskZip = [IO.Compression.ZipFile]::Open($taskArchive,[IO.Compression.ZipArchiveMode]::Create)
+try {
+    foreach ($taskFile in $taskFiles) {
+        $taskEntryName = $taskFile.FullName.Substring($taskPackageRoot.Length + 1).Replace('\','/')
+        [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($taskZip,$taskFile.FullName,$taskEntryName,[IO.Compression.CompressionLevel]::Optimal) | Out-Null
+    }
+} finally { $taskZip.Dispose() }
 $taskHash = (Get-FileHash -LiteralPath $taskArchive -Algorithm SHA256).Hash.ToLowerInvariant()
 [IO.File]::WriteAllText($taskArchive + '.sha256.txt',$taskHash + '  ' + [IO.Path]::GetFileName($taskArchive) + [Environment]::NewLine,[Text.UTF8Encoding]::new($false))
 Write-Output "Release: $taskArchive"
