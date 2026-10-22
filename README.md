@@ -2,6 +2,10 @@
 
 Windows 上的 Minecraft Java 版与基岩版启动器，使用 C#、WPF 和 .NET 8。
 
+## 下载
+
+前往 [Releases 下载 Windows x64 便携版](https://github.com/LorinAvis/BlockDock/releases)。选择 `BlockDock-版本号-Windows-x64.zip`，完整解压后运行 `BlockDock.exe`。下载包包含 .NET 运行时，无需安装 SDK；GitHub 自动生成的 Source code 压缩包用于源码构建。
+
 ## 功能
 
 - 微软正版登录、玩家头像与可旋转的皮肤预览。
@@ -26,6 +30,14 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```powershell
 dotnet build src/BlockDock.csproj -c Release
 ```
+
+从干净的 Git 提交生成包含运行时、依赖及对应源码的发布 ZIP：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\package-release.ps1
+```
+
+发布包和 SHA256 文件输出到 `artifacts/releases/`，不提交到 Git，上传至 GitHub Releases。
 
 回归检查使用独立测试目录，不操作真实游戏存档：
 
