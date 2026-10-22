@@ -1,0 +1,18 @@
+# Local accounts, configured sources, downloaded games and browser state
+**/data/
+**/bin/
+**/obj/
+/artifacts/
+/.cache/
+/work/
+/outputs/
+/engines/
+/.vs/
+*.user
+*.suo
+*.log
+*.pfx
+*.key
+*.appx
+*.msix
+*.msixvc

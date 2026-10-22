@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>BlockDock</AssemblyName>
+    <Version>2.9.0</Version>
+    <ApplicationIcon>Assets/BlockDock.ico</ApplicationIcon>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets/BlockDock.png"/>
+    <Resource Include="Assets/DefaultWallpaper.png"/>
+    <Content Include="../app-registration.json" Link="app-registration.json" CopyToOutputDirectory="PreserveNewest"/>
+    <Compile Remove="ForgeBridge/**/*.cs"/>
+    <PackageReference Include="CmlLib.Core" Version="4.1.0"/>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0"/>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31"/>
+    <ProjectReference Include="ForgeBridge/ForgeBridge.csproj"/>
+  </ItemGroup>
+</Project>

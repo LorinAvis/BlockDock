@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AssemblyName>BlockDock.Forge</AssemblyName><NuGetAudit>false</NuGetAudit></PropertyGroup>
+ <ItemGroup><PackageReference Include="CmlLib.Core" Version="4.1.0"/><PackageReference Include="HtmlAgilityPack" Version="1.11.48"/></ItemGroup>
+</Project>
