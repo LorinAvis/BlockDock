@@ -19,7 +19,11 @@ dotnet publish (Join-Path $taskRoot 'src\BlockDock.csproj') -c Release -r $Runti
 if ($LASTEXITCODE -ne 0) { throw 'Self-contained publish failed.' }
 $taskBuilt = Join-Path $taskRoot 'artifacts\app'
 foreach ($taskName in @('LICENSE.txt','NOTICE.md')) { Copy-Item -LiteralPath (Join-Path $taskRoot $taskName) -Destination $taskApp }
-foreach ($taskName in @('licenses','engines')) { Copy-Item -LiteralPath (Join-Path $taskBuilt $taskName) -Destination $taskApp -Recurse }
+foreach ($taskName in @('licenses','engines')) {
+    $taskDestination = Join-Path $taskApp $taskName
+    New-Item -ItemType Directory -Path $taskDestination -Force | Out-Null
+    Get-ChildItem -LiteralPath (Join-Path $taskBuilt $taskName) | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $taskDestination -Recurse -Force }
+}
 $taskSource = Join-Path $taskApp 'source'
 New-Item -ItemType Directory -Path $taskSource -Force | Out-Null
 $taskSourceArchive = Join-Path $taskSource "BlockDock-$taskVersion-source.zip"
@@ -41,7 +45,7 @@ Licenses: LICENSE.txt, NOTICE.md and licenses/
 
 $taskRuntime = Get-Content -LiteralPath (Join-Path $taskApp 'BlockDock.runtimeconfig.json') -Raw | ConvertFrom-Json
 if ($taskRuntime.runtimeOptions.framework -or $taskRuntime.runtimeOptions.frameworks -or -not $taskRuntime.runtimeOptions.includedFrameworks) { throw 'The package requires a preinstalled .NET runtime.' }
-foreach ($taskName in @('BlockDock.exe','hostfxr.dll','hostpolicy.dll','coreclr.dll','PresentationFramework.dll','engines\BedrockLauncher\BedrockLauncher.UpdateProcessor.dll')) {
+foreach ($taskName in @('BlockDock.exe','hostfxr.dll','hostpolicy.dll','coreclr.dll','PresentationFramework.dll','engines\BedrockLauncher\BedrockLauncher.UpdateProcessor.dll','engines\SeedMap\BlockDock.SeedMap.dll')) {
     if (-not (Test-Path -LiteralPath (Join-Path $taskApp $taskName))) { throw "Missing release file: $taskName" }
 }
 $taskFiles = @(Get-ChildItem -LiteralPath $taskApp -File -Recurse)

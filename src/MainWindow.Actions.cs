@@ -21,10 +21,10 @@ public partial class MainWindow
         if(id=="download"&&!settings.DownloadSourceIntroductionSeen&&downloadView is "minecraft" or "bedrock"&&!(downloadView=="minecraft"?DownloadProvider.HasJava:DownloadProvider.HasBedrock)){OpenSourceSettings(downloadView);return;}
         foreach(var p in pages.Where(x=>x.Key!="bedrock"))p.Value.Visibility=p.Key==id?Visibility.Visible:Visibility.Collapsed;
         foreach(var b in nav){b.Value.Background=b.Key==ActiveSidebar(id)?Theme.Brush("#15392E"):Brushes.Transparent;b.Value.Foreground=b.Key==ActiveSidebar(id)?Theme.Accent:Theme.Text;}
-        title.Text=id switch{"home"=>"欢迎回来","games"=>"Java 游戏管理","download"=>"下载资源","installed"=>"实例内容","tasks"=>"下载管理","bedrock-local"=>"基岩版游戏管理","account"=>"账号管理","settings"=>"设置",_=>"关于 BlockDock"};
-        subtitle.Text=id switch{"home"=>"选择游戏，装上喜欢的内容，开始自己的冒险。","games"=>"你的版本、模组与存档，各自独立管理。","download"=>"游戏、模组、光影与整合包，统一下载和管理。","tasks"=>"查看下载进度、速度和保存位置。","account"=>"使用微软正版账号，管理角色与皮肤。","provider"=>"管理游戏文件的下载来源和资源平台。","settings"=>"调整启动、文件位置和外观。",_=>"By Players, For Players."};
+        title.Text=id switch{"home"=>"欢迎回来","games"=>"Java 游戏管理","worlds"=>"地图与存档","download"=>"下载资源","installed"=>"实例内容","tasks"=>"下载管理","bedrock-local"=>"基岩版游戏管理","account"=>"账号管理","settings"=>"设置",_=>"关于 BlockDock"};
+        subtitle.Text=id switch{"home"=>"选择游戏，装上喜欢的内容，开始自己的冒险。","games"=>"你的版本、模组与存档，各自独立管理。","worlds"=>"管理各版本的世界，查看种子与本地地图。","download"=>"游戏、模组、光影与整合包，统一下载和管理。","tasks"=>"查看下载进度、速度和保存位置。","account"=>"使用微软正版账号，管理角色与皮肤。","provider"=>"管理游戏文件的下载来源和资源平台。","settings"=>"调整启动、文件位置和外观。",_=>"By Players, For Players."};
         if(id=="download")ApplyDownloadView();if(id=="home")UpdateOverview();
-        if(id=="installed")RefreshInstalled();if(id=="bedrock-local")RefreshBedrockPackages();
+        if(id=="installed")RefreshInstalled();if(id=="bedrock-local")RefreshBedrockPackages();if(id=="worlds")_=RefreshWorldsAsync();
     }
     void RefreshGames()
     {
@@ -190,8 +190,9 @@ public partial class MainWindow
     }
     void Window_Closing(object? sender,CancelEventArgs e)
     {
+        if(worldOperationCts!=null){e.Cancel=true;worldOperationCts.Cancel();worldMessage.Text="正在取消存档操作，请结束后关闭。";return;}
         if(launchPreparing){e.Cancel=true;if(launchCanCancel){launchCts?.Cancel();launchStatus.Text="正在取消启动准备，请稍候…";}else launchStatus.Text="Windows 正在切换游戏，请完成后关闭。";return;}
         if(jobs.Any(x=>!x.Finished)){e.Cancel=true;foreach(var job in jobs.Where(x=>!x.Finished&&x.CanCancel))job.Cancel();NotifyStatus(jobs.Any(x=>!x.Finished&&!x.CanInterrupt)?"Windows 正在安装，请等待完成后关闭。":"正在取消任务，结束后可关闭。",true);return;}
-        bedrockCts?.Cancel();listCts?.Cancel();resourceCts?.Cancel();skinCts?.Cancel();loaderCts?.Cancel();try{settings.Save();}catch{}
+        worldScanCts?.Cancel();bedrockCts?.Cancel();listCts?.Cancel();resourceCts?.Cancel();skinCts?.Cancel();loaderCts?.Cancel();try{settings.Save();}catch{}
     }
 }

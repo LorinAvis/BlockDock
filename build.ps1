@@ -6,6 +6,7 @@ $taskRoot = $PSScriptRoot
 $taskOutput = Join-Path $taskRoot 'artifacts\app'
 $taskCache = Join-Path $taskRoot '.cache'
 New-Item -ItemType Directory -Path $taskOutput,$taskCache -Force | Out-Null
+& (Join-Path $taskRoot 'build-seed-map.ps1')
 
 function Get-VerifiedArchive([string]$Url,[string]$Name,[string]$Hash) {
     $taskFile = Join-Path $taskCache $Name

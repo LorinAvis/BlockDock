@@ -21,6 +21,7 @@ public partial class MainWindow
     }
     async Task RunLaunchAsync(string name,string scope,Func<IProgress<WorkProgress>,CancellationToken,Task<Process>> start,Action<DateTimeOffset>? started=null)
     {
+        if(worldOperationCts!=null||OwnedWindows.OfType<WorldMapWindow>().Any(w=>w.ReadingWorld)){NotifyStatus("请等待地图读取或存档操作完成，再启动游戏。",true);return;}
         if(launchPreparing||FocusLaunchedGame())return;launchCts?.Dispose();var cts=launchCts=new();launchPreparing=true;launchCanCancel=true;launchWindowSeen=false;startupDuration=null;launchedName=name;launchClock=Stopwatch.StartNew();launchStatus.Foreground=Theme.Text;launchStatus.Text="准备启动 "+name;launchElapsed.Text="";launchProgress.Value=0;launchProgress.IsIndeterminate=true;launchProgress.Visibility=Visibility.Visible;launchCancel.Visibility=Visibility.Visible;launchCancel.Content="取消准备";launchCancel.IsEnabled=true;RefreshLaunchButton();
         if(!jobScopes.TryGetValue(scope,out var gate))jobScopes[scope]=gate=new(1);bool held=false;
         var timer=new System.Windows.Threading.DispatcherTimer{Interval=TimeSpan.FromMilliseconds(200)};timer.Tick+=(_,_)=>{if(launchPreparing)launchElapsed.Text="已等待 "+launchClock.Elapsed.TotalSeconds.ToString("0.0")+" 秒";};timer.Start();

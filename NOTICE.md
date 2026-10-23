@@ -16,6 +16,10 @@ Copyright AlphaBs and contributors. CmlLib.Core 4.1.0 and Commons 4.0.0 are MIT.
 
 ## Other dependencies
 
+[Cubiomes](https://github.com/Cubitect/cubiomes), Copyright Cubitect and contributors, MIT. Vendored commit `e61f90580cbdd883214a8054670dacae655e59c0`; original sources and license are in `src/SeedMapNative/cubiomes/`. BlockDock adds a native C bridge and C# UI; the engine predicts supported Java biomes and structures. The Windows native build uses Zig 0.13.0 and MinGW runtime support; see `licenses/MinGW-runtime-COPYING.txt`.
+
+The read-only Bedrock world parser was implemented with reference to Google LevelDB format documentation and [Mojang creator-tools](https://github.com/Mojang/creator-tools) commit `a8f2cd2fc7aa7e7e075dbf54a4597319aa8b71e1` (MIT). See `licenses/Mojang-Creator-Tools-LICENSE.txt`. No game database engine or game assets are bundled for map rendering.
+
 HtmlAgilityPack, SharpZipLib, LZMA SDK, Newtonsoft.Json, Semver, .NET support assemblies and WebView2 retain their respective licenses in `licenses/`. JemExtensions is covered by the matching BedrockLauncher source. WebView2 browser runtime is not bundled.
 
 ## Images and services

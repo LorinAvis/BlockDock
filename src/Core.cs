@@ -66,7 +66,7 @@ public static class Paths
     }
     public static string Id(string id)
     {
-        if(string.IsNullOrWhiteSpace(id)||id is "." or ".."||id.IndexOfAny(Path.GetInvalidFileNameChars())>=0||id.EndsWith('.')||id.EndsWith(' '))throw new IOException("版本名称包含无效字符。");
+        if(string.IsNullOrWhiteSpace(id)||id is "." or ".."||id.IndexOfAny(Path.GetInvalidFileNameChars())>=0||id.EndsWith('.')||id.EndsWith(' ')||Regex.IsMatch(id,@"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)",RegexOptions.IgnoreCase|RegexOptions.CultureInvariant))throw new IOException("文件或版本名称包含无效字符。");
         return id;
     }
     public static void Open(string file) => Process.Start(new ProcessStartInfo(file){UseShellExecute=true});
