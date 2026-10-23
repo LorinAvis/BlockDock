@@ -33,6 +33,8 @@ public sealed class Settings
     public double PanelOpacity {get;set;} = .72;
     public bool DownloadSourceIntroductionSeen {get;set;}
     public bool BedrockAutoSwitch {get;set;} = true;
+    public bool CheckUpdatesOnStartup {get;set;} = true;
+    public bool IncludePreviewUpdates {get;set;} = true;
     public string BedrockEngine => Path.Combine(AppContext.BaseDirectory,"engines","BedrockLauncher");
     public static Settings Load()
     {

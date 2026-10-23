@@ -13,6 +13,7 @@ Windows 上的 Minecraft Java 版与基岩版启动器，使用 C#、WPF 和 .NE
 - Modrinth 模组、光影、材质包和整合包搜索，按版本匹配安装。
 - 基岩版签名包安装、启动前自动切换版本，独立存档与内容目录、备份和恢复。
 - 下载队列、取消、并发控制、速度与保存位置。
+- 启动时检查新版、设置内手动检查，支持正式版与预览版更新提醒。
 - 内置默认背景，自定义图片、视频和本机 Wallpaper Engine 图片 / 视频壁纸。
 
 ## 构建
@@ -43,6 +44,7 @@ powershell -ExecutionPolicy Bypass -File .\package-release.ps1
 
 ```powershell
 dotnet run --project tests-v2/Checks.csproj -c Release -- --release-checks
+dotnet run --project tests-v2/Checks.csproj -c Release -- --update-checks
 dotnet run --project tests-v2/Checks.csproj -c Release -- --player-launch-checks
 dotnet run --project tests-v2/Checks.csproj -c Release -- --isolation-checks
 ```

@@ -9,9 +9,9 @@ public partial class MainWindow
     readonly ListView transferList=new();readonly TextBlock taskBadge=new(){Text="0",Margin=new(7,0,0,0)};readonly Dictionary<string,(Border Root,TextBlock Label,ProgressBar Progress,Button Retry)> loading=new();
     void BuildTopBar(Grid shell)
     {
-        var top=Cols(new(1,GridUnitType.Star),GridLength.Auto,GridLength.Auto,GridLength.Auto);top.Margin=new(24,7,12,4);var drag=new Border{Background=Brushes.Transparent,Child=Text("BlockDock",12)};drag.MouseLeftButtonDown+=(_,e)=>{if(e.ClickCount==2)WindowState=WindowState==WindowState.Maximized?WindowState.Normal:WindowState.Maximized;else DragMove();};Row(top,drag,0);
-        var task=Button("",(_,_)=>Navigate("tasks"));task.Content=H(new TextBlock{Text="\uE896",FontFamily=new("Segoe MDL2 Assets"),FontSize=17},taskBadge);task.ToolTip="下载任务 · 速度、文件和保存位置";Row(top,task,0,1);
-        headerAccount.Text="未登录微软账号";headerAccount.VerticalAlignment=VerticalAlignment.Center;var account=Button("",(_,_)=>Navigate("account"));account.Content=H(headerAvatar,headerAccount);account.Padding=new(10,5,10,5);Row(top,account,0,2);Row(top,H(Button("—",(_,_)=>WindowState=WindowState.Minimized),Button("□",(_,_)=>WindowState=WindowState==WindowState.Maximized?WindowState.Normal:WindowState.Maximized),Button("×",(_,_)=>Close())),0,3);Row(shell,top,0,1);
+        var top=Cols(new(1,GridUnitType.Star),GridLength.Auto,GridLength.Auto,GridLength.Auto,GridLength.Auto);top.Margin=new(24,7,12,4);var drag=new Border{Background=Brushes.Transparent,Child=Text("BlockDock",12)};drag.MouseLeftButtonDown+=(_,e)=>{if(e.ClickCount==2)WindowState=WindowState==WindowState.Maximized?WindowState.Normal:WindowState.Maximized;else DragMove();};Row(top,drag,0);Row(top,updateNotice,0,1);
+        var task=Button("",(_,_)=>Navigate("tasks"));task.Content=H(new TextBlock{Text="\uE896",FontFamily=new("Segoe MDL2 Assets"),FontSize=17},taskBadge);task.ToolTip="下载任务 · 速度、文件和保存位置";Row(top,task,0,2);
+        headerAccount.Text="未登录微软账号";headerAccount.VerticalAlignment=VerticalAlignment.Center;var account=Button("",(_,_)=>Navigate("account"));account.Content=H(headerAvatar,headerAccount);account.Padding=new(10,5,10,5);Row(top,account,0,3);Row(top,H(Button("—",(_,_)=>WindowState=WindowState.Minimized),Button("□",(_,_)=>WindowState=WindowState==WindowState.Maximized?WindowState.Normal:WindowState.Maximized),Button("×",(_,_)=>Close())),0,4);Row(shell,top,0,1);
     }
     void UpdateTaskBadge()=>taskBadge.Text=jobs.Count(x=>!x.Finished).ToString();
     Grid LoadingHost(FrameworkElement content,string key)
