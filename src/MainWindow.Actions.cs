@@ -20,6 +20,8 @@ public partial class MainWindow
         if(id=="provider"){OpenSourceSettings();return;}if(id=="bedrock"){ShowDownload(id);return;}
         if(id=="download"&&!settings.DownloadSourceIntroductionSeen&&downloadView is "minecraft" or "bedrock"&&!(downloadView=="minecraft"?DownloadProvider.HasJava:DownloadProvider.HasBedrock)){OpenSourceSettings(downloadView);return;}
         foreach(var p in pages.Where(x=>x.Key!="bedrock"))p.Value.Visibility=p.Key==id?Visibility.Visible:Visibility.Collapsed;
+        workspaceFrame.Padding=new(id=="home"?0:18);workspaceFrame.BorderThickness=new(id=="home"?0:1);workspaceFrame.BorderBrush=Theme.Edge;
+        if(id=="home")workspaceFrame.Background=Brushes.Transparent;else workspaceFrame.SetResourceReference(BackgroundProperty,"WorkspaceBackground");
         foreach(var b in nav){b.Value.Background=b.Key==ActiveSidebar(id)?Theme.Brush("#15392E"):Brushes.Transparent;b.Value.Foreground=b.Key==ActiveSidebar(id)?Theme.Accent:Theme.Text;}
         title.Text=id switch{"home"=>"欢迎回来","games"=>"Java 游戏管理","worlds"=>"地图与存档","download"=>"下载资源","installed"=>"实例内容","tasks"=>"下载管理","bedrock-local"=>"基岩版游戏管理","account"=>"账号管理","settings"=>"设置",_=>"关于 BlockDock"};
         subtitle.Text=id switch{"home"=>"选择游戏，装上喜欢的内容，开始自己的冒险。","games"=>"你的版本、模组与存档，各自独立管理。","worlds"=>"管理各版本的世界，查看种子与本地地图。","download"=>"游戏、模组、光影与整合包，统一下载和管理。","tasks"=>"查看下载进度、速度和保存位置。","account"=>"使用微软正版账号，管理角色与皮肤。","provider"=>"管理游戏文件的下载来源和资源平台。","settings"=>"调整启动、文件位置和外观。",_=>"By Players, For Players."};

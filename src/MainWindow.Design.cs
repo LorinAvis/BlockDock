@@ -17,28 +17,14 @@ public partial class MainWindow
         input.TextChanged+=(_,_)=>hint.Visibility=input.Text.Length==0?Visibility.Visible:Visibility.Collapsed;
         hint.Visibility=input.Text.Length==0?Visibility.Visible:Visibility.Collapsed;grid.Children.Add(input);grid.Children.Add(icon);grid.Children.Add(hint);return grid;
     }
-    Button Shortcut(string name,string description,string glyph,Action action)
-    {
-        var b=Button("",(_,_)=>action());b.HorizontalContentAlignment=HorizontalAlignment.Stretch;b.Padding=new(15);b.Margin=new(0,0,0,10);
-        var grid=Cols(new(34),new(1,GridUnitType.Star),new(18));
-        Row(grid,new TextBlock{Text=glyph,FontFamily=new("Segoe MDL2 Assets"),FontSize=20,Foreground=Theme.Accent,VerticalAlignment=VerticalAlignment.Center},0);
-        Row(grid,V(Text(name,14,true),new TextBlock{Text=description,Foreground=Theme.Muted,FontSize=11,Margin=new(0,4,0,0),TextWrapping=TextWrapping.Wrap}),0,1);
-        Row(grid,new TextBlock{Text="›",FontSize=22,Foreground=Theme.Muted,VerticalAlignment=VerticalAlignment.Center},0,2);b.Content=grid;return b;
-    }
     void BuildHomeDashboard()
     {
-        var selected=Cols(new(100),new(1,GridUnitType.Star));selectedCover.Width=selectedCover.Height=80;
-        Row(selected,new Border{Child=selectedCover,Background=Theme.Raised,CornerRadius=new(16),Padding=new(8),Margin=new(0,0,14,0)},0);
-        selectedSummary.FontSize=24;selectedSummary.FontWeight=FontWeights.SemiBold;selectedSummary.TextTrimming=TextTrimming.CharacterEllipsis;selectedSummary.SetBinding(ToolTipProperty,new System.Windows.Data.Binding("Text"){Source=selectedSummary});gameInfo.Foreground=Theme.Muted;gameInfo.TextWrapping=TextWrapping.Wrap;
-        Row(selected,V(selectedSummary,Gap(5),gameInfo,Gap(8),selectedFacts),0,1);
-        var current=Card(V(new TextBlock{Text="当前游戏",Foreground=Theme.Accent,FontSize=12,FontWeight=FontWeights.SemiBold},Gap(16),selected,Gap(22),H(Button("选择版本",(_,_)=>Navigate(editionBox.SelectedIndex==1?"bedrock-local":"games")),Button("管理内容",(_,_)=>{if(editionBox.SelectedIndex==1){if(homeBedrock.SelectedItem is BedrockPackage package)OpenBedrockData(package);}else{installedGame.SelectedItem=homeGame.SelectedItem;Navigate("installed");}}),Button("地图与存档",(_,_)=>OpenWorlds(editionBox.SelectedIndex==0?homeGame.SelectedItem as GameInstance:null,editionBox.SelectedIndex==1?homeBedrock.SelectedItem as BedrockPackage:null)))));
-        var resources=new System.Windows.Controls.Primitives.UniformGrid{Columns=2};
-        foreach(var item in new[]{("模组","为游戏添加新玩法","\uEA86","mod"),("整合包","开始一段完整的冒险","\uE7B8","modpack"),("材质包","换一种方块风格","\uE8B9","resourcepack"),("光影","发现更好看的世界","\uE706","shader")})
-        {string type=item.Item4;var b=Shortcut(item.Item1,item.Item2,item.Item3,()=>ShowDownload(type));b.Margin=new(0,0,10,10);resources.Children.Add(b);}
-        var library=V(Text("发现内容",17,true),Gap(12),resources);library.Margin=new(2,22,0,0);
-        var side=V(Text("快速访问",14,true),Gap(12),Shortcut("Java 版","版本与加载器","\uE8A5",()=>Navigate("games")),Shortcut("基岩版","独立版本与存档","\uE809",()=>Navigate("bedrock-local")),Shortcut("下载任务","查看速度与进度","\uE896",()=>Navigate("tasks")),Gap(10),Text("本机游戏",12,true),Gap(5),homeSummary);
-        homeSummary.Foreground=Theme.Muted;homeSummary.TextWrapping=TextWrapping.Wrap;homeSummary.LineHeight=22;var right=Card(side);right.VerticalAlignment=VerticalAlignment.Top;
-        var grid=Cols(new(1,GridUnitType.Star),new(20),new(260));Row(grid,V(current,library),0);Row(grid,right,0,2);Page("home",Scroll(grid));
+        var selected=Cols(new(88),new(1,GridUnitType.Star));selectedCover.Width=selectedCover.Height=68;Row(selected,selectedCover,0);
+        selectedSummary.FontSize=22;selectedSummary.FontWeight=FontWeights.SemiBold;selectedSummary.TextTrimming=TextTrimming.CharacterEllipsis;selectedSummary.SetBinding(ToolTipProperty,new System.Windows.Data.Binding("Text"){Source=selectedSummary});gameInfo.TextWrapping=TextWrapping.Wrap;
+        Row(selected,V(selectedSummary,gameInfo,Gap(),selectedFacts),0,1);
+        var current=Card(V(Text("继续你的冒险",18,true),Gap(),selected,Gap(),H(Button("选择实例",(_,_)=>Navigate(editionBox.SelectedIndex==1?"bedrock-local":"games")),Button("管理内容",(_,_)=>{if(editionBox.SelectedIndex==1){if(homeBedrock.SelectedItem is BedrockPackage package)OpenBedrockData(package);}else{installedGame.SelectedItem=homeGame.SelectedItem;Navigate("installed");}}),Button("基岩版版本管理",(_,_)=>Navigate("bedrock-local")))));current.MaxWidth=760;current.HorizontalAlignment=HorizontalAlignment.Left;
+        var quick=Card(V(Text("发现更多内容",17,true),Gap(8),H(Button("Java",(_,_)=>ShowDownload("minecraft")),Button("基岩版",(_,_)=>ShowDownload("bedrock")),Button("模组",(_,_)=>ShowDownload("mod")),Button("光影",(_,_)=>ShowDownload("shader")),Button("材质包",(_,_)=>ShowDownload("resourcepack")),Button("整合包",(_,_)=>ShowDownload("modpack")))));quick.HorizontalAlignment=HorizontalAlignment.Left;quick.Margin=new(0,16,0,0);
+        homeSummary.TextWrapping=TextWrapping.Wrap;Page("home",Scroll(V(current,quick,Gap(10),homeSummary)));
     }
     void BuildSettingsDashboard()
     {

@@ -13,7 +13,7 @@ public partial class MainWindow : Window
     readonly ComboBox editionBox=new(),homeBedrock=new(),resourceSort=new(),installedGame=new(),installedKind=new();readonly StackPanel javaHome=new(),bedrockHome=new();
     readonly System.Collections.ObjectModel.ObservableCollection<LauncherJob> jobs=new();readonly ListView jobList=new(),homeJobs=new();readonly ResizableJobGate jobSlots=new();readonly Dictionary<string,SemaphoreSlim> jobScopes=new(StringComparer.OrdinalIgnoreCase);readonly AsyncLocal<LauncherJob?> jobContext=new();
     CancellationTokenSource? active,listCts,resourceCts,skinCts,loaderCts;bool ready,refreshing,bedrockOnline;string resourceType="minecraft",downloadView="minecraft",instanceFilter="all";int resourceOffset,totalResources;
-    readonly Grid pageHost=new(),downloadDeck=new();readonly Dictionary<string,FrameworkElement> pages=new();readonly Dictionary<string,Button> nav=new(),downloadTabs=new(),instanceTabs=new();
+    readonly Border workspaceFrame=new();readonly Grid pageHost=new(),downloadDeck=new();readonly Dictionary<string,FrameworkElement> pages=new();readonly Dictionary<string,Button> nav=new(),downloadTabs=new(),instanceTabs=new();
     readonly TextBlock title=new(){FontSize=25,FontWeight=FontWeights.Bold},subtitle=new(){Foreground=Theme.Muted,FontSize=12},status=new(){Text="准备就绪",FontSize=11,Foreground=Theme.Muted},headerAccount=new(),sourceStatus=new(),homeSummary=new(),selectedSummary=new(),installedStatus=new();
     readonly Image selectedCover=new(){Stretch=Stretch.UniformToFill},headerAvatar=new(){Width=32,Height=32};readonly StackPanel selectedFacts=new();
     readonly ComboBox homeGame=new(),accountBox=new(),targetBox=new(),loaderBox=new(),loaderVersion=new(),minecraftType=new(),resourceVersions=new(),bedrockType=new(),memoryBox=new(),sourceBox=new(),instanceSort=new();
@@ -52,7 +52,7 @@ public partial class MainWindow : Window
         var sideFrame=new Border{Background=new LinearGradientBrush(Theme.Brush("#14222C").Color,Theme.Brush("#0D171F").Color,90),BorderBrush=Theme.Edge,BorderThickness=new(0,0,1,0),Child=side};Grid.SetRowSpan(sideFrame,3);sideFrame.SetResourceReference(BackgroundProperty,"ShellBackground");Row(shell,sideFrame,0);
         BuildTopBar(shell);
         var body=Rows(GridLength.Auto,new(1,GridUnitType.Star));body.Margin=new(22,4,22,16);var heroText=V(title,Gap(5),subtitle);var hero=new Border{Child=heroText,Padding=new(18,10,18,10),Margin=new(0,4,0,12),CornerRadius=new(12),Background=new LinearGradientBrush(Theme.Brush("#DA0D151D").Color,Theme.Brush("#850D151D").Color,0)};Row(body,hero,0);
-        var workspace=new Border{Child=pageHost,CornerRadius=new(16),BorderBrush=Theme.Edge,BorderThickness=new(1),Padding=new(18),ClipToBounds=true};workspace.SetResourceReference(BackgroundProperty,"WorkspaceBackground");Row(body,workspace,1);Row(shell,body,1,1);
+        workspaceFrame.Child=pageHost;workspaceFrame.CornerRadius=new(16);workspaceFrame.ClipToBounds=true;workspaceFrame.SetResourceReference(BackgroundProperty,"WorkspaceBackground");Row(body,workspaceFrame,1);Row(shell,body,1,1);
         BuildLaunchBar(shell);BuildHome();BuildGames();BuildWorlds();BuildDownload();BuildBedrock();BuildInstalled();BuildTasks();BuildAccounts();BuildSettings();BuildAbout();
         ready=true;RefreshGames();ReloadAccounts();versions=DownloadProvider.HasJava?JavaService.CachedVersions():new();FilterMinecraft();ApplyWallpaper(settings.WallpaperFile);Navigate("home");_=DetectJavaAsync();
     }
