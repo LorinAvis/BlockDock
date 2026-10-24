@@ -15,7 +15,7 @@ public sealed class StructureMapIcons(SavedWorld? world)
     readonly ConcurrentDictionary<string, ImageSource> images = new(StringComparer.Ordinal);
     readonly SemaphoreSlim loading = new(1, 1);
     bool loaded;
-    static readonly string[] Names = { "村庄", "沙漠神殿", "丛林神庙", "沼泽小屋", "雪屋", "海底神殿", "林地府邸", "掠夺者前哨站", "废弃传送门", "远古城市", "埋藏的宝藏", "试炼密室", "下界要塞", "堡垒遗迹", "末地城", "下界废弃传送门" };
+    static readonly string[] Names = { "村庄", "沙漠神殿", "丛林神庙", "沼泽小屋", "雪屋", "海底神殿", "林地府邸", "掠夺者前哨站", "废弃传送门", "远古城市", "埋藏的宝藏", "试炼密室", "下界要塞", "堡垒遗迹", "末地城", "下界废弃传送门", "末地要塞" };
 
     // Call once alongside map generation. Get itself never opens files on the UI thread.
     public async Task LoadAsync(CancellationToken ct = default)
@@ -157,24 +157,31 @@ public sealed class StructureMapIcons(SavedWorld? world)
             }
         });
     }
-    static ImageSource Cube(BitmapSource side, BitmapSource? top = null)
+    static ImageSource Cube(BitmapSource side, BitmapSource? top = null, int blockHeight = 16)
     {
         BitmapSource Frame(BitmapSource frame) { int size = frame.PixelWidth; if (frame.PixelHeight < size) throw new InvalidDataException(); var crop = new CroppedBitmap(frame, new Int32Rect(0, 0, size, size)); crop.Freeze(); return crop; }
         var front = Frame(side); var ceiling = Frame(top ?? side);
-        return Drawing(32, 34, dc =>
+        if (blockHeight < 16) { int height = front.PixelWidth * blockHeight / 16; var crop = new CroppedBitmap(front, new Int32Rect(0, front.PixelHeight - height, front.PixelWidth, height)); crop.Freeze(); front = crop; }
+        return Drawing(32, 16 + blockHeight * 1.125, dc =>
         {
-            void Face(BitmapSource texture, Matrix transform, byte shade)
+            void Face(BitmapSource texture, Matrix transform, byte shade, int height = 16)
             {
-                dc.PushTransform(new MatrixTransform(transform)); dc.DrawImage(texture, new Rect(0, 0, 16, 16));
-                if (shade > 0) dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(shade, 0, 0, 0)), null, new Rect(0, 0, 16, 16)); dc.Pop();
+                dc.PushTransform(new MatrixTransform(transform)); dc.DrawImage(texture, new Rect(0, 0, 16, height));
+                if (shade > 0) dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(shade, 0, 0, 0)), null, new Rect(0, 0, 16, height)); dc.Pop();
             }
-            Face(front, new Matrix(1, .5, 0, 1.125, 0, 8), 30);
-            Face(front, new Matrix(1, -.5, 0, 1.125, 16, 16), 65);
+            Face(front, new Matrix(1, .5, 0, 1.125, 0, 8), 30, blockHeight);
+            Face(front, new Matrix(1, -.5, 0, 1.125, 16, 16), 65, blockHeight);
             Face(ceiling, new Matrix(1, -.5, 1, .5, 0, 8), 0);
         });
     }
     static ImageSource? Icon(ZipArchive zip, string name)
     {
+        if (name == "末地要塞")
+        {
+            var side = Texture(zip, "block/end_portal_frame_side", "blocks/endframe_side", "blocks/end_portal_frame_side");
+            var frameTop = Texture(zip, "block/end_portal_frame_top", "blocks/endframe_top", "blocks/end_portal_frame_top");
+            return side == null || frameTop == null ? null : Cube(side, frameTop, 13);
+        }
         string? entity = name switch { "村庄" => "villager/villager", "沼泽小屋" => "witch", "林地府邸" => "illager/vindicator", "掠夺者前哨站" => "illager/pillager", "远古城市" => "warden/warden", "堡垒遗迹" => "piglin/piglin", _ => null };
         if (entity != null)
         {

@@ -9,9 +9,12 @@ public partial class MainWindow
     readonly ListView transferList=new();readonly TextBlock taskBadge=new(){Text="0",Margin=new(7,0,0,0)};readonly Dictionary<string,(Border Root,TextBlock Label,ProgressBar Progress,Button Retry)> loading=new();
     void BuildTopBar(Grid shell)
     {
-        var top=Cols(new(1,GridUnitType.Star),GridLength.Auto,GridLength.Auto,GridLength.Auto,GridLength.Auto);top.Margin=new(24,7,12,4);var drag=new Border{Background=Brushes.Transparent,Child=Text("BlockDock",12)};drag.MouseLeftButtonDown+=(_,e)=>{if(e.ClickCount==2)WindowState=WindowState==WindowState.Maximized?WindowState.Normal:WindowState.Maximized;else DragMove();};Row(top,drag,0);Row(top,updateNotice,0,1);
+        Row(shell,new Border{Background=Theme.Brush("#B30D151D")},0,1);
+        var top=Cols(new(1,GridUnitType.Star),GridLength.Auto,GridLength.Auto,GridLength.Auto,GridLength.Auto);top.Margin=new(26,9,12,5);var drag=new Border{Background=Brushes.Transparent,Child=new TextBlock{Text="BLOCKDOCK   /   工作台",FontSize=10,Foreground=Theme.Muted,VerticalAlignment=VerticalAlignment.Center}};drag.MouseLeftButtonDown+=(_,e)=>{if(e.ClickCount==2)WindowState=WindowState==WindowState.Maximized?WindowState.Normal:WindowState.Maximized;else DragMove();};Row(top,drag,0);Row(top,updateNotice,0,1);
         var task=Button("",(_,_)=>Navigate("tasks"));task.Content=H(new TextBlock{Text="\uE896",FontFamily=new("Segoe MDL2 Assets"),FontSize=17},taskBadge);task.ToolTip="下载任务 · 速度、文件和保存位置";Row(top,task,0,2);
-        headerAccount.Text="未登录微软账号";headerAccount.VerticalAlignment=VerticalAlignment.Center;var account=Button("",(_,_)=>Navigate("account"));account.Content=H(headerAvatar,headerAccount);account.Padding=new(10,5,10,5);Row(top,account,0,3);Row(top,H(Button("—",(_,_)=>WindowState=WindowState.Minimized),Button("□",(_,_)=>WindowState=WindowState==WindowState.Maximized?WindowState.Normal:WindowState.Maximized),Button("×",(_,_)=>Close())),0,4);Row(shell,top,0,1);
+        headerAccount.Text="未登录微软账号";headerAccount.VerticalAlignment=VerticalAlignment.Center;headerAccount.Margin=new(8,0,0,0);headerAccount.MaxWidth=145;headerAccount.TextTrimming=TextTrimming.CharacterEllipsis;headerAvatar.Width=headerAvatar.Height=26;var account=Button("",(_,_)=>Navigate("account"));account.Content=H(headerAvatar,headerAccount);account.Padding=new(10,4,10,4);Row(top,account,0,3);
+        Button WindowButton(string label,string tip,Action action){var b=Button(label,(_,_)=>action());b.SetResourceReference(StyleProperty,"Subtle");b.Width=36;b.Padding=new(0);b.Margin=new(2,0,0,0);b.ToolTip=tip;return b;}
+        Row(top,H(WindowButton("—","最小化",()=>WindowState=WindowState.Minimized),WindowButton("□","最大化 / 还原",()=>WindowState=WindowState==WindowState.Maximized?WindowState.Normal:WindowState.Maximized),WindowButton("×","关闭",()=>Close())),0,4);Row(shell,top,0,1);
     }
     void UpdateTaskBadge()=>taskBadge.Text=jobs.Count(x=>!x.Finished).ToString();
     Grid LoadingHost(FrameworkElement content,string key)
@@ -37,6 +40,6 @@ public partial class MainWindow
     void ApplyWallpaperStyle()
     {
         bool enabled=wallpaperImage.Source!=null||wallpaperVideo.Source!=null;var stretch=settings.WallpaperFit switch{"Fill"=>Stretch.UniformToFill,"Stretch"=>Stretch.Fill,_=>Stretch.Uniform};wallpaperImage.Stretch=wallpaperVideo.Stretch=stretch;wallpaperImage.Opacity=wallpaperVideo.Opacity=Math.Clamp(settings.WallpaperBrightness,.2,1);
-        byte alpha=enabled?(byte)(255*Math.Clamp(settings.PanelOpacity,.25,1)):(byte)255;Resources["CardBackground"]=new SolidColorBrush(Color.FromArgb(alpha,18,29,39));Resources["ShellBackground"]=new SolidColorBrush(Color.FromArgb(enabled?(byte)Math.Max(170,(int)alpha):(byte)255,13,23,31));
+        byte alpha=enabled?(byte)(255*Math.Clamp(settings.PanelOpacity,.25,1)):(byte)255;Resources["CardBackground"]=new SolidColorBrush(Color.FromArgb(alpha,23,33,43));Resources["ShellBackground"]=new SolidColorBrush(Color.FromArgb(enabled?(byte)Math.Max(220,(int)alpha):(byte)255,12,20,28));Resources["WorkspaceBackground"]=new SolidColorBrush(Color.FromArgb(enabled?(byte)Math.Max(195,(int)alpha):(byte)255,13,21,29));
     }
 }

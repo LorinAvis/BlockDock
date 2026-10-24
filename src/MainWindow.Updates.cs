@@ -31,7 +31,7 @@ public partial class MainWindow
         updateNotice.Content = "有新版本";
         updateNotice.ToolTip = "查看 BlockDock 更新";
         updateNotice.Foreground = Theme.Accent;
-        updateNotice.Click += (_, _) => { Navigate("settings"); Dispatcher.BeginInvoke(() => updateCard.BringIntoView()); };
+        updateNotice.Click += (_, _) => { Navigate("settings"); ShowSettingsSection("updates"); Dispatcher.BeginInvoke(() => updateCard.BringIntoView()); };
         updateSummary.Text = "当前版本 · " + LauncherVersion.Label;
         updateSummary.TextWrapping = updateDetail.TextWrapping = TextWrapping.Wrap;
         updateDetail.Foreground = Theme.Muted;

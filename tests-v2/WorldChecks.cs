@@ -108,6 +108,7 @@ static class WorldChecks
         Check(predicted.Image.Pixels.SequenceEqual(repeated.Image.Pixels) && predicted.Biomes.Distinct().Count() > 1 && predicted.Features.All(f => f.X >= predicted.Image.MinX && f.X < predicted.Image.MinX + 1024), "offline biome and structure map is deterministic and bounded");
         Reject(() => OfflineSeedMap.Render(true, algorithm, 262, 0, 0, 1024, 0, false, null, default), "Bedrock prediction never substitutes the Java algorithm");
         WorldTextureChecks.Run();
+        StrongholdChecks.Run();
         Ui(j, b, actual);
         Console.WriteLine("WORLD CHECKS PASSED; isolated fixtures only");
     }
@@ -154,6 +155,7 @@ static class WorldChecks
                 var original=Field<Image>(map,"image").Source;Field<CheckBox>(map,"gridLines").IsChecked=true;var filter=Field<ComboBox>(map,"featureFilter");filter.SelectedItem="村庄";
                 Check(ReferenceEquals(original,Field<Image>(map,"image").Source)&&Field<ListView>(map,"structures").Items.Cast<SeedFeature>().All(f=>f.Name=="村庄"),"structure filtering and grid overlays preserve generated map without recomputing");
                 Check(!filter.Items.Cast<string>().Contains("古迹废墟"),"trail ruins are omitted from map markers and filters as requested");
+                MapInteractionChecks.Run(map);
             }
             finally { map.Close(); }
             var pe = new WorldMapWindow(bedrock);

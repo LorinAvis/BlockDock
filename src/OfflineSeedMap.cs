@@ -7,7 +7,10 @@ public sealed record SeedAlgorithm(int Index, string Family, string Baseline)
 {
     public override string ToString() => "Java " + Family + " · 基准 " + Baseline;
 }
-public sealed record SeedFeature(string Name, int X, int Z);
+public sealed record SeedFeature(string Name, int X, int Z)
+{
+    public string Description => Name == "末地要塞" ? "主世界中的要塞预测位置（通往末地），不是末地传送门房间的精确坐标。" : "结构预测位置，可能与实际生成不同。";
+}
 public sealed record SeedMapResult(WorldMapImage Image, int[] Biomes, IReadOnlyList<SeedFeature> Features, SeedAlgorithm Algorithm);
 
 public static class OfflineSeedMap
@@ -27,7 +30,7 @@ public static class OfflineSeedMap
         if (v.Minor == 19) return patch <= 2 ? Algorithms[13] : patch <= 4 ? Algorithms[14] : null;
         return Algorithms.FirstOrDefault(a => a.Family == "1." + v.Minor && patch <= Math.Max(0, Version.Parse(a.Baseline).Build));
     }
-    static readonly string[] Features = { "村庄", "沙漠神殿", "丛林神庙", "沼泽小屋", "雪屋", "海底神殿", "林地府邸", "掠夺者前哨站", "废弃传送门", "远古城市", "埋藏的宝藏", "古迹废墟", "试炼密室", "下界要塞", "堡垒遗迹", "末地城", "下界废弃传送门" };
+    static readonly string[] Features = { "村庄", "沙漠神殿", "丛林神庙", "沼泽小屋", "雪屋", "海底神殿", "林地府邸", "掠夺者前哨站", "废弃传送门", "远古城市", "埋藏的宝藏", "古迹废墟", "试炼密室", "下界要塞", "堡垒遗迹", "末地城", "下界废弃传送门", "末地要塞" };
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate int Abi();
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate int RenderNative(int version, long seed, int dimension, int minX, int minZ, int scale, int width, int large, [Out] int[] colors, [Out] int[] biomes);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate int FeaturesNative(int version, long seed, int dimension, int minX, int minZ, int span, int large, [Out] int[] output, int capacity);

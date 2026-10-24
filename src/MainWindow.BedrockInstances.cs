@@ -15,9 +15,9 @@ public partial class MainWindow
         try{var instance=BedrockInstances.For(package);bedrockInstanceInfo.Text="独立数据目录："+instance.UserData+"\n游戏文件由 Windows 安装管理；存档、资源包和设置使用此实例的目录。";}
         catch(Exception e)when(e is IOException or System.Xml.XmlException or InvalidOperationException){bedrockInstanceInfo.Text="无法读取实例："+e.Message;}
     }
-    void OpenBedrockData()
+    void OpenBedrockData(BedrockPackage? selected=null)
     {
-        if(packageList.SelectedItem is not BedrockPackage package)return;
+        if((selected??packageList.SelectedItem) is not BedrockPackage package)return;
         try{string folder=BedrockInstances.For(package).UserData;BedrockDataLink.NoLinks(folder);Directory.CreateDirectory(folder);Open(folder);}catch(Exception e){Error(e);}
     }
     async Task RestoreBedrockSystemAsync()
