@@ -53,7 +53,7 @@ public partial class MainWindow : Window
         BuildTopBar(shell);
         var body=Rows(GridLength.Auto,new(1,GridUnitType.Star));body.Margin=new(22,4,22,16);var heroText=V(title,Gap(5),subtitle);var hero=new Border{Child=heroText,Padding=new(18,10,18,10),Margin=new(0,4,0,12),CornerRadius=new(12),Background=new LinearGradientBrush(Theme.Brush("#DA0D151D").Color,Theme.Brush("#850D151D").Color,0)};Row(body,hero,0);
         workspaceFrame.Child=pageHost;workspaceFrame.CornerRadius=new(16);workspaceFrame.ClipToBounds=true;workspaceFrame.SetResourceReference(BackgroundProperty,"WorkspaceBackground");Row(body,workspaceFrame,1);Row(shell,body,1,1);
-        BuildLaunchBar(shell);BuildHome();BuildGames();BuildWorlds();BuildDownload();BuildBedrock();BuildInstalled();BuildTasks();BuildAccounts();BuildSettings();BuildAbout();
+        BuildLaunchBar(shell);BuildHome();BuildGames();BuildWorlds();BuildDownload();BuildBedrock();BuildInstalled();BuildTasks();BuildAccounts();BuildSettings();BuildAbout();ConfigurePackDrop();
         ready=true;RefreshGames();ReloadAccounts();versions=DownloadProvider.HasJava?JavaService.CachedVersions():new();FilterMinecraft();ApplyWallpaper(settings.WallpaperFile);Navigate("home");_=DetectJavaAsync();
     }
 }

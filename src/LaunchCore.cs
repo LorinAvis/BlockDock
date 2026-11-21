@@ -136,7 +136,7 @@ public sealed class LaunchCore : IDisposable
     {
         string name=string.IsNullOrWhiteSpace(displayName)?minecraft+(loader=="vanilla"?" 原版":" "+loader):displayName.Trim();
         Paths.Id(name);string id=name;int counter=2;
-        while(Directory.Exists(Paths.Safe(settings.JavaRoot,"versions/"+id)))id=name+" ("+(counter++)+")";
+        while(Directory.Exists(Paths.Safe(settings.JavaRoot,"versions/"+id))||File.Exists(Paths.Safe(settings.JavaRoot,"versions/"+id)))id=name+" ("+(counter++)+")";
         var profile=VersionProfiles.Create(settings.JavaRoot,installedId,id);var folder=Paths.Safe(settings.JavaRoot,"versions/"+id);Directory.CreateDirectory(folder);
         Settings.AtomicText(Path.Combine(folder,id+".json"),profile.ToJsonString());
         Settings.AtomicText(Path.Combine(folder,".blockdock-profile.json"),JsonSerializer.Serialize(new{name,minecraft,loader,sourceVersion=installedId}));

@@ -88,11 +88,6 @@ public partial class MainWindow
         if(resourceList.SelectedItem is not ResourceProject project||resourceVersions.SelectedItem is not ResourceVersion version)return;if(project.Type=="modpack"&&!EnsureSource("minecraft"))return;var target=targetBox.SelectedItem as GameInstance;if(project.Type!="modpack"&&target is null){MessageBox.Show(this,"请先选择要安装到的游戏。");return;}
         await RunAsync("安装 "+project.Name,async(p,ct)=>{using var service=new ResourceService(settings){Log=Log};if(project.Type=="modpack"){var game=await service.InstallPackAsync(version,CleanName(project.Name),p,ct);settings.LastGame=game.Id;}else{int count=await service.InstallAsync(project,version,target!,p,ct);Log($"已安装 {count} 个文件（包括必需前置）。");}},scope:target==null?null:"content:"+target.GameDirectory,destination:target?.GameDirectory??Path.Combine(settings.JavaRoot,"versions"),project:project);
     }
-    async Task ImportPackAsync()
-    {
-        if(!EnsureSource("minecraft"))return;var dialog=new OpenFileDialog{Title="导入 Modrinth 整合包",Filter="Modrinth 整合包|*.mrpack"};if(dialog.ShowDialog()!=true)return;var file=dialog.FileName;
-        await RunAsync("导入整合包",async(p,ct)=>{using var service=new ResourceService(settings){Log=Log};var game=await service.ImportPackAsync(file,"",p,ct);settings.LastGame=game.Id;});
-    }
     static string AccountKey(object? a)=>a switch{MicrosoftAccount ms=>ms.Uuid,_=>""};
     void ReloadAccounts()
     {
@@ -133,7 +128,7 @@ public partial class MainWindow
     async Task RepairGameAsync()
     {
         if(gameList.SelectedItem is not GameInstance game)return;
-        await RunAsync("修复 "+game.Name,async(p,ct)=>{string pack=Path.Combine(game.Folder,".blockdock-pack.json");if(game.Pending&&File.Exists(pack)){var job=JsonNode.Parse(await File.ReadAllTextAsync(pack,ct))!;using var resources=new ResourceService(settings){Log=Log};await resources.ImportPackAsync(job["package"]!.ToString(),job["name"]!.ToString(),p,ct);}else{using var launch=new LaunchCore(settings){Log=Log};launch.RepairInstanceProfile(game);await launch.CreateLauncher(game.GameDirectory,true).InstallAsync(game.Id,cancellationToken:ct);File.Delete(Path.Combine(game.Folder,".blockdock-pending"));}});
+        await RunAsync("修复 "+game.Name,async(p,ct)=>{string pack=Path.Combine(game.Folder,".blockdock-pack.json");if(game.Pending&&File.Exists(pack)){var job=JsonNode.Parse(await File.ReadAllTextAsync(pack,ct))!;using var resources=new ResourceService(settings){Log=Log};await resources.ImportPackAsync(job["package"]!.ToString(),job["name"]!.ToString(),p,ct,job["sha256"]?.ToString());}else{using var launch=new LaunchCore(settings){Log=Log};launch.RepairInstanceProfile(game);await launch.CreateLauncher(game.GameDirectory,true).InstallAsync(game.Id,cancellationToken:ct);File.Delete(Path.Combine(game.Folder,".blockdock-pending"));}});
     }
     async Task BackupGameAsync()
     {
@@ -168,7 +163,7 @@ public partial class MainWindow
     void ImportProvider()
     {
         if(active!=null)return;var dialog=new OpenFileDialog{Title="导入下载源配置",Filter="下载源配置|*.json"};if(dialog.ShowDialog()!=true)return;
-        try{var config=DownloadProvider.Parse(File.ReadAllText(dialog.FileName));DownloadProvider.Save(config);sourceName.Text=config.Name;javaManifestUrl.Text=config.JavaManifestUrl;bedrockUwpUrl.Text=config.BedrockUwpUrl;bedrockGdkUrl.Text=config.BedrockGdkUrl;settings.Source="Custom";settings.Save();versions.Clear();bedrock.Clear();providerHint.Text="已导入："+config.Name;UpdateOverview();}catch(Exception e){providerHint.Text=e.Message;}
+        try{var config=DownloadProvider.Parse(File.ReadAllText(dialog.FileName));DownloadProvider.Save(config);sourceName.Text=config.Name;javaManifestUrl.Text=config.JavaManifestUrl;bedrockUwpUrl.Text=config.BedrockUwpUrl;bedrockGdkUrl.Text=config.BedrockGdkUrl;settings.Source="Custom";settings.Save();versions.Clear();bedrock.Clear();providerHint.Text="已导入："+config.Name;UpdateOverview();if(pendingPackImport!=null&&DownloadProvider.HasJava)_=ContinuePackImportAsync();}catch(Exception e){providerHint.Text=e.Message;}
     }
     void RemoveProvider(){if(active!=null)return;try{File.Delete(DownloadProvider.ConfigPath);sourceName.Clear();javaManifestUrl.Clear();bedrockUwpUrl.Clear();bedrockGdkUrl.Clear();settings.Source="Unconfigured";settings.Save();versions.Clear();bedrock.Clear();minecraftList.ItemsSource=null;bedrockList.ItemsSource=null;providerHint.Text="尚未配置游戏本体下载源。";UpdateOverview();}catch(Exception e){providerHint.Text=e.Message;}}
     void SaveSettings()

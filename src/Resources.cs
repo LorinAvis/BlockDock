@@ -104,12 +104,9 @@ public sealed class ResourceService : IDisposable
         var game=await ImportPackAsync(package,name,p,ct);
         try{var project=await GetAsync("/project/"+Uri.EscapeDataString(version.ProjectId),ct);if(Uri.TryCreate(project["icon_url"]?.ToString(),UriKind.Absolute,out var icon)&&icon.Scheme=="https"){using var response=await http.GetAsync(icon,HttpCompletionOption.ResponseHeadersRead,ct);if(response.IsSuccessStatusCode&&response.Content.Headers.ContentLength is >0 and <2097152){var data=await response.Content.ReadAsByteArrayAsync(ct);await File.WriteAllBytesAsync(Path.Combine(game.Folder,".blockdock-icon.png"),data,ct);}}}catch(Exception e)when(!ct.IsCancellationRequested){Log?.Invoke("整合包图标暂未读取："+e.Message);}return game;
     }
-    public async Task<GameInstance> ImportPackAsync(string package,string displayName,IProgress<WorkProgress> p,CancellationToken ct)
+    public async Task<GameInstance> ImportPackAsync(string package,string displayName,IProgress<WorkProgress> p,CancellationToken ct,string? expectedSha256=null)
     {
-        using var zip=ZipFile.OpenRead(package);if(zip.Entries.Count>100000||zip.Entries.Sum(x=>x.Length)>10L*1024*1024*1024)throw new IOException("整合包解压规模过大。");var entry=zip.GetEntry("modrinth.index.json")??throw new IOException("请选择 Modrinth 的 .mrpack 整合包。这个压缩包没有 modrinth.index.json。");
-        if(entry.Length>10_000_000)throw new IOException("整合包清单过大。");
-        JsonNode index;await using(var stream=entry.Open())index=await JsonNode.ParseAsync(stream,cancellationToken:ct)??throw new IOException("整合包清单为空。");
-        if(index["formatVersion"]?.GetValue<int>()!=1||index["game"]?.ToString()!="minecraft")throw new IOException("不支持这个整合包格式。");
+        using var archive=await Task.Run(()=>PackArchive.Open(package,ct),ct);var index=archive.Index;
         var dependencies=index["dependencies"]!.AsObject();string minecraft=dependencies["minecraft"]?.ToString()??throw new IOException("整合包没有声明 Minecraft 版本。");
         string loader="vanilla",loaderVersion="";
         foreach(var dep in dependencies.Where(x=>x.Key!="minecraft")){
@@ -118,33 +115,82 @@ public sealed class ResourceService : IDisposable
         }
         // Validate every destination before creating an instance or executing installers.
         var packFiles=index["files"]!.AsArray().Where(x=>x?["env"]?["client"]?.ToString() is not("unsupported" or "optional")).ToList();
-        foreach(var f in packFiles){CheckPackPath(f!["path"]!.ToString());string h=f["hashes"]?["sha1"]?.ToString()??"";if(!Regex.IsMatch(h,"^[0-9a-fA-F]{40}$"))throw new IOException("整合包文件缺少有效校验值。");}
-        foreach(var e in zip.Entries.Where(x=>x.FullName.StartsWith("overrides/")||x.FullName.StartsWith("client-overrides/")))if(e.Name.Length>0)CheckPackPath(e.FullName[(e.FullName.IndexOf('/')+1)..]);
+        foreach(var f in packFiles){CheckPackPath(f!["path"]!.ToString());string h=f["hashes"]?["sha1"]?.ToString()??"";if(!Regex.IsMatch(h,"^[0-9a-fA-F]{40}$"))throw new IOException("整合包文件缺少有效校验值。");var urls=f["downloads"]?.AsArray();if(urls==null||urls.Count==0||urls.Any(x=>!Uri.TryCreate(x?.ToString(),UriKind.Absolute,out var u)||u.Scheme!="https"))throw new IOException("整合包文件必须提供 HTTPS 下载地址。");}
         string name=string.IsNullOrWhiteSpace(displayName)?index["name"]?.ToString()??Path.GetFileNameWithoutExtension(package):displayName;
-        string packHash;await using(var stream=File.OpenRead(package))packHash=Convert.ToHexString(await System.Security.Cryptography.SHA1.HashDataAsync(stream,ct));
-        string jobKey=Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(System.Text.Encoding.UTF8.GetBytes(packHash+name)));
+        Paths.Id(name);BedrockDataLink.NoLinks(settings.JavaRoot);
+        string packHash;await using(var stream=File.OpenRead(package))packHash=Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(stream,ct));
+        if(expectedSha256!=null&&!packHash.Equals(expectedSha256,StringComparison.OrdinalIgnoreCase))throw new IOException("整合包文件在预览后发生了变化，请重新选择后导入。");
+        string jobKey=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(packHash+"\n"+name+"\n"+Path.GetFullPath(settings.JavaRoot).TrimEnd('\\','/').ToUpperInvariant())));
         string jobFile=Paths.Safe(Settings.DataPath,"pack-jobs/"+jobKey+".json");GameInstance? game=null;
-        if(File.Exists(jobFile)){var state=JsonNode.Parse(await File.ReadAllTextAsync(jobFile,ct))!;game=LaunchCore.Scan(settings).FirstOrDefault(x=>x.Id==state["id"]?.ToString());if(game!=null&&state["complete"]?.GetValue<bool>()==true)return game;}
-        if(game is null){using var launch=new LaunchCore(settings){Log=Log};using var versionsDl=new Downloader(settings.Source);var versions=await new JavaService(settings,versionsDl).VersionsAsync(ct);var vanilla=versions.FirstOrDefault(x=>x.Id==minecraft)??throw new IOException("找不到整合包需要的游戏版本："+minecraft);game=await launch.InstallAsync(vanilla,loader,loaderVersion,name,p,ct);Settings.AtomicText(jobFile,JsonSerializer.Serialize(new{id=game.Id,complete=false}));}
-        string pending=Path.Combine(game.Folder,".blockdock-pending");Settings.AtomicText(pending,"整合包安装尚未完成");
-        Settings.AtomicText(Path.Combine(game.Folder,".blockdock-pack.json"),JsonSerializer.Serialize(new{package=Path.GetFullPath(package),name}));
+        if(File.Exists(jobFile))
+        {
+            try
+            {
+                if(new FileInfo(jobFile).Length>16384)throw new IOException("旧导入记录过大。");
+                var state=JsonNode.Parse(await File.ReadAllTextAsync(jobFile,ct)) as JsonObject??throw new JsonException("旧导入记录无效。");var prior=LaunchCore.Scan(settings).FirstOrDefault(x=>x.Id==state["id"]?.ToString());
+                if(prior!=null&&MatchesPackReceipt(prior,name,packHash,minecraft,loader)){game=prior;if(!game.Pending&&state["complete"]?.GetValue<bool>()==true)return game;}
+            }
+            catch(Exception e)when(e is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or InvalidOperationException){Log?.Invoke("旧导入记录已失效，将新建实例。");game=null;}
+        }
+        if(game is null)
+        {
+            using var launch=new LaunchCore(settings){Log=Log};string? local=await Task.Run(()=>PackLocalVersions.Find(settings,index),ct);
+            if(local!=null){ct.ThrowIfCancellationRequested();p.Report(new("使用本机已安装的游戏环境…"));game=launch.CreateInstance(local,minecraft,loader,name);}
+            else{using var versionsDl=new Downloader(settings.Source);var versions=await new JavaService(settings,versionsDl).VersionsAsync(ct);var vanilla=versions.FirstOrDefault(x=>x.Id==minecraft)??throw new IOException("找不到整合包需要的游戏版本："+minecraft);game=await launch.InstallAsync(vanilla,loader,loaderVersion,name,p,ct);}
+            Settings.AtomicText(jobFile,JsonSerializer.Serialize(new{id=game.Id,complete=false}));
+        }
+        BedrockDataLink.NoLinks(game.GameDirectory);string pending=Path.Combine(game.Folder,".blockdock-pending");Settings.AtomicText(pending,"整合包安装尚未完成");
+        Settings.AtomicText(Path.Combine(game.Folder,".blockdock-pack.json"),JsonSerializer.Serialize(new{package=Path.GetFullPath(package),name,sha256=packHash}));
         int done=0;
         foreach(var f in packFiles)
         {
             ct.ThrowIfCancellationRequested();string rel=f!["path"]!.ToString();var urls=f["downloads"]!.AsArray().Select(x=>x!.ToString()).ToArray();if(urls.Length==0)throw new IOException("整合包文件没有下载地址："+rel);Exception? last=null;bool complete=false;
-            foreach(var url in urls){if(!Uri.TryCreate(url,UriKind.Absolute,out var u)||u.Scheme!="https")throw new IOException("整合包文件必须使用 HTTPS 下载。");try{await dl.FileAsync(new(url,Paths.Safe(game.GameDirectory,rel),f["hashes"]!["sha1"]!.ToString(),f["fileSize"]?.GetValue<long>()??0),ct);complete=true;break;}catch(Exception e)when(!ct.IsCancellationRequested){last=e;}}
+            string destination=Paths.Safe(game.GameDirectory,rel);CheckPackDestination(destination);CheckPackDestination(destination+".part");foreach(var url in urls){try{await dl.FileAsync(new(url,destination,f["hashes"]!["sha1"]!.ToString(),f["fileSize"]?.GetValue<long>()??0),ct);complete=true;break;}catch(Exception e)when(!ct.IsCancellationRequested){last=e;}}
             if(!complete)throw new IOException("整合包文件下载失败："+rel,last);p.Report(new("整合包文件 · "+rel,++done,packFiles.Count));
         }
-        foreach(var prefix in new[]{"overrides/","client-overrides/"})foreach(var e in zip.Entries.Where(x=>x.FullName.StartsWith(prefix,StringComparison.Ordinal)&&x.Name.Length>0))
-        {
-            ct.ThrowIfCancellationRequested();string rel=e.FullName[prefix.Length..];var destination=Paths.Safe(game.GameDirectory,rel);Directory.CreateDirectory(Path.GetDirectoryName(destination)!);await using var input=e.Open();await using var output=File.Create(destination);await input.CopyToAsync(output,ct);
-        }
+        await CopyPackEntriesAsync(archive,game.GameDirectory,p,ct);
         File.Delete(pending);Settings.AtomicText(jobFile,JsonSerializer.Serialize(new{id=game.Id,complete=true}));return game with{Pending=false};
+    }
+    static bool MatchesPackReceipt(GameInstance game,string name,string hash,string minecraft,string loader)
+    {
+        if(game.Minecraft!=minecraft||game.Loader!=loader)return false;
+        string path=Path.Combine(game.Folder,".blockdock-pack.json");CheckPackDestination(path);BedrockDataLink.NoLinks(game.GameDirectory);
+        if(!File.Exists(path)||new FileInfo(path).Length>16384)return false;
+        var receipt=JsonNode.Parse(File.ReadAllText(path));
+        return string.Equals(receipt?["sha256"]?.ToString(),hash,StringComparison.OrdinalIgnoreCase)&&receipt?["name"]?.ToString()==name;
+    }
+    public static async Task CopyPackEntriesAsync(PackArchive pack,string gameDirectory,IProgress<WorkProgress> p,CancellationToken ct)
+    {
+        long total=pack.Entries.Sum(x=>x.Length),done=0;int count=0;BedrockDataLink.NoLinks(gameDirectory);
+        foreach(var file in pack.Entries)
+        {
+            ct.ThrowIfCancellationRequested();CheckPackPath(file.Path);string destination=Paths.Safe(gameDirectory,file.Path);CheckPackDestination(destination);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);string temporary=destination+".pack-"+Guid.NewGuid().ToString("N")+".tmp";
+            try
+            {
+                var entry=pack.Archive.GetEntry(file.ArchivePath)??throw new IOException("整合包内容不完整："+file.Path);
+                await using(var input=entry.Open())await using(var output=new FileStream(temporary,FileMode.CreateNew,FileAccess.Write,FileShare.None,131072,true))
+                {
+                    var buffer=new byte[131072];long written=0;int read;
+                    while((read=await input.ReadAsync(buffer,ct))>0){written+=read;if(written>file.Length)throw new IOException("整合包文件大小与清单不符："+file.Path);await output.WriteAsync(buffer.AsMemory(0,read),ct);done+=read;p.Report(new("导入文件 · "+file.Path,Bytes:done,Size:total));}
+                    if(written!=file.Length)throw new IOException("整合包文件不完整："+file.Path);
+                }
+                ct.ThrowIfCancellationRequested();CheckPackDestination(destination);File.Move(temporary,destination,true);
+                p.Report(new("已导入 · "+file.Path,++count,pack.Entries.Count,done,total));
+            }
+            finally{if(File.Exists(temporary))File.Delete(temporary);}
+        }
+    }
+    static void CheckPackDestination(string path)
+    {
+        BedrockDataLink.NoLinks(path);var file=new FileInfo(path);
+        if(file.LinkTarget!=null||file.Exists&&(file.Attributes&FileAttributes.ReparsePoint)!=0)throw new IOException("整合包目标文件不能是链接："+path);
     }
     public static void CheckPackPath(string path)
     {
-        if(string.IsNullOrWhiteSpace(path)||path.Contains('\\')||path.Contains(':')||path.StartsWith('/')||path.Split('/').Any(x=>x is "." or ".."))throw new IOException("整合包包含不安全的路径。");
-        var first=path.Split('/')[0];if(first.StartsWith(".blockdock-",StringComparison.OrdinalIgnoreCase)||new[]{"versions","libraries","runtime","data","engines"}.Contains(first,StringComparer.OrdinalIgnoreCase)||path.EndsWith(".exe",StringComparison.OrdinalIgnoreCase)||path.EndsWith(".ps1",StringComparison.OrdinalIgnoreCase)||path.EndsWith(".bat",StringComparison.OrdinalIgnoreCase))throw new IOException("整合包包含不应写入的启动器或可执行文件："+path);
+        if(string.IsNullOrWhiteSpace(path)||path.Length>1024||path.Contains('\\')||path.Contains(':')||path.StartsWith('/')||path.Split('/').Any(x=>string.IsNullOrEmpty(x)||x is "." or ".."))throw new IOException("整合包包含不安全的路径。");
+        foreach(var segment in path.Split('/'))Paths.Id(segment);
+        var first=path.Split('/')[0];if(first.StartsWith(".blockdock-",StringComparison.OrdinalIgnoreCase)||new[]{"versions","libraries","runtime","data","engines","assets"}.Contains(first,StringComparer.OrdinalIgnoreCase)||new[]{".exe",".ps1",".bat",".cmd",".com",".scr",".lnk",".url",".msi",".vbs"}.Contains(Path.GetExtension(path),StringComparer.OrdinalIgnoreCase))throw new IOException("整合包包含不应写入的启动器或可执行文件："+path);
     }
     public static List<InstalledResource> Installed(GameInstance game,string type)
     {
