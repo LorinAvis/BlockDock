@@ -18,21 +18,82 @@ static class PlayerLaunchChecks
     static void Check(bool good,string label){if(!good)throw new Exception("FAIL: "+label);Console.WriteLine("PASS: "+label);}
     public static int Fixture(string[] args)
     {
-        int delay=int.Parse(args.Single(x=>x.StartsWith("--delay=")).Split('=')[1]),exit=int.Parse(args.Single(x=>x.StartsWith("--exit=")).Split('=')[1]);bool noWindow=args.Contains("--no-window");var app=new Application{ShutdownMode=ShutdownMode.OnExplicitShutdown};var window=new Window{Title="BlockDock isolated launch fixture",Width=220,Height=100,Left=-20000,Top=-20000,WindowStartupLocation=WindowStartupLocation.Manual,ShowActivated=false,ShowInTaskbar=false,Content=new TextBlock{Text="Isolated process test"}};var show=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(Math.Max(1,delay))};show.Tick+=(_,_)=>{show.Stop();if(!noWindow)window.Show();};var stop=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(exit)};stop.Tick+=(_,_)=>{stop.Stop();app.Shutdown(noWindow?7:0);};show.Start();stop.Start();return app.Run();
+        int delay=int.Parse(args.Single(x=>x.StartsWith("--delay=")).Split('=')[1]),exit=int.Parse(args.Single(x=>x.StartsWith("--exit=")).Split('=')[1]);bool noWindow=args.Contains("--no-window");var app=new Application{ShutdownMode=ShutdownMode.OnExplicitShutdown};var window=new Window{Title="BlockDock isolated launch fixture",Width=220,Height=100,Left=-20000,Top=-20000,WindowStartupLocation=WindowStartupLocation.Manual,ShowActivated=false,ShowInTaskbar=false,Content=new TextBlock{Text="Isolated process test"}};var show=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(Math.Max(1,delay))};show.Tick+=(_,_)=>{show.Stop();if(!noWindow)window.Show();};var stop=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(exit)};stop.Tick+=(_,_)=>{stop.Stop();app.Shutdown(noWindow ? 7 : args.Contains("--runtime-error") ? 9 : 0);};show.Start();stop.Start();return app.Run();
     }
     public static void Run()
     {
         var previous=SynchronizationContext.Current;SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));var app=new BlockDock.App{ShutdownMode=ShutdownMode.OnExplicitShutdown};app.InitializeComponent();MainWindow? window=null;var children=new List<int>();
         try
         {
-            SkinApiChecks();BedrockFlowChecks();new Settings{JavaRoot=Path.GetFullPath("work/ui-fixture/empty"),DownloadSourceIntroductionSeen=true}.Save();window=new MainWindow();var account=new MicrosoftAccount("PlayerPreview","1234567890abcdef1234567890abcdef","","fixture_access_token","fixture_refresh_token",DateTimeOffset.MaxValue,"11111111-1111-1111-1111-111111111111");typeof(MainWindow).GetField("accounts",Flags)!.SetValue(window,new List<MicrosoftAccount>{account});Call(window,"ReloadAccounts");Get<ComboBox>(window,"accountBox").SelectedItem=account;var png=Skin();Call(window,"ShowPlayerSkin",account,png);Get<TextBlock>(window,"skinStatus").Text="立体皮肤预览 · 隔离界面测试素材";Call(window,"UpdateOverview");var avatar=(BitmapSource)Get<Image>(window,"headerAvatar").Source;Check(avatar.PixelWidth==8&&RenderOptions.GetBitmapScalingMode(Get<Image>(window,"headerAvatar"))==BitmapScalingMode.NearestNeighbor,"actual header shows native player head instead of the launcher logo after overview refresh");var avatarBytes=new byte[8*8*4];avatar.CopyPixels(avatarBytes,32,0);Check(avatarBytes[0]==255&&avatarBytes[3]==255,"head avatar includes opaque hat overlay above the base face");
+            LaunchReportChecks.Run();SkinApiChecks();BedrockFlowChecks();new Settings{JavaRoot=Path.GetFullPath("work/ui-fixture/empty"),DownloadSourceIntroductionSeen=true,CheckUpdatesOnStartup=false}.Save();window=new MainWindow();var account=new MicrosoftAccount("PlayerPreview","1234567890abcdef1234567890abcdef","","fixture_access_token","fixture_refresh_token",DateTimeOffset.MaxValue,"11111111-1111-1111-1111-111111111111");typeof(MainWindow).GetField("accounts",Flags)!.SetValue(window,new List<MicrosoftAccount>{account});Call(window,"ReloadAccounts");Get<ComboBox>(window,"accountBox").SelectedItem=account;var png=Skin();Call(window,"ShowPlayerSkin",account,png);Get<TextBlock>(window,"skinStatus").Text="立体皮肤预览 · 隔离界面测试素材";Call(window,"UpdateOverview");var avatar=(BitmapSource)Get<Image>(window,"headerAvatar").Source;Check(avatar.PixelWidth==8&&RenderOptions.GetBitmapScalingMode(Get<Image>(window,"headerAvatar"))==BitmapScalingMode.NearestNeighbor,"actual header shows native player head instead of the launcher logo after overview refresh");var avatarBytes=new byte[8*8*4];avatar.CopyPixels(avatarBytes,32,0);Check(avatarBytes[0]==255&&avatarBytes[3]==255,"head avatar includes opaque hat overlay above the base face");
             var skin=Get<SkinPreview>(window,"skinPreview");Call(window,"Navigate","account");skin.View(0);Render(window,"玩家皮肤-正面",1460,930);skin.Rotate(160,20);Check(skin.Yaw!=0&&skin.Pitch!=0,"drag rotation changes both model axes");skin.Zoom(-999);Check(skin.Distance==42,"preview zoom is bounded");skin.ResetView();Get<ComboBox>(window,"skinModel").SelectedIndex=1;Check(skin.Slim,"actual model picker switches the rendered arm model");skin.View(180);Render(window,"玩家皮肤-背面",1460,930);skin.View(-20);Render(window,"玩家皮肤-最小窗口",1120,780);skin.SetSkin(Skin(32));skin.SetSkin(png);Check(skin.Children.Count>0,"legacy and modern skin layouts both build without out-of-range UVs");
-            var settings=Get<Settings>(window,"settings");DateTimeOffset? actual=null;Func<IProgress<WorkProgress>,CancellationToken,Task<Process>> factory=async(p,ct)=>{p.Report(new("测试：验证账号与准备文件…"));await Task.Delay(400,ct);var process=StartFixture(false);children.Add(process.Id);return process;};Action<DateTimeOffset> recorded=time=>{actual=time;settings.LastPlayed["launch-fixture"]=time;};var launch=CallTask(window,"RunLaunchAsync","测试游戏","test-only",factory,recorded);Check(Get<System.Collections.ObjectModel.ObservableCollection<LauncherJob>>(window,"jobs").Count==0,"launch preparation is absent from download jobs");Render(window,"底部启动条-准备中",1120,780);Wait(launch);Check(Get<ProgressBar>(window,"launchProgress").IsIndeterminate&&!Get<bool>(window,"launchWindowSeen"),"a running process without its window is not marked startup complete");var processStart=new DateTimeOffset(Get<Process>(window,"launchedGame").StartTime.ToUniversalTime(),TimeSpan.Zero);Check(actual==processStart&&settings.LastPlayed["launch-fixture"]==processStart,"last launch time is the actual process start time");Pump(()=>Get<bool>(window,"launchWindowSeen"),8000);Check(!Get<ProgressBar>(window,"launchProgress").IsIndeterminate&&Get<ProgressBar>(window,"launchProgress").Value==100&&Get<TimeSpan?>(window,"startupDuration")!.Value.TotalSeconds>=1.2,"progress completes only after a delayed real visible window exists");Render(window,"底部启动条-游戏运行",1460,930);Render(window,"底部启动条-游戏运行-最小窗口",1120,780);Pump(()=>Get<Process?>(window,"launchedGame")==null,7000);Check(Get<TextBlock>(window,"launchStatus").Text.Contains("游戏已退出"),"actual process exit ends the running status");string stopped=Get<TextBlock>(window,"launchElapsed").Text;Delay(300);Check(Get<TextBlock>(window,"launchElapsed").Text==stopped,"game elapsed time stops when the process exits");
-            Func<IProgress<WorkProgress>,CancellationToken,Task<Process>> failure=(p,ct)=>{var process=StartFixture(true);children.Add(process.Id);return Task.FromResult(process);};Wait(CallTask(window,"RunLaunchAsync","提前退出检查","test-only",failure,null));Pump(()=>Get<Process?>(window,"launchedGame")==null,6000);Check(!Get<bool>(window,"launchWindowSeen")&&Get<TextBlock>(window,"launchStatus").Text.Contains("未显示窗口即退出"),"early exit is reported as failure before a window instead of successful launch");
-            bool wouldStart=false;Func<IProgress<WorkProgress>,CancellationToken,Task<Process>> cancel=async(p,ct)=>{await Task.Delay(5000,ct);wouldStart=true;return new Process();};var cancelling=CallTask(window,"RunLaunchAsync","取消检查","test-only",cancel,null);Get<Button>(window,"launchCancel").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Wait(cancelling);Check(!wouldStart&&Get<TextBlock>(window,"launchStatus").Text.Contains("已取消")&&Get<System.Collections.ObjectModel.ObservableCollection<LauncherJob>>(window,"jobs").Count==0,"cancelling preparation never starts a process or creates a download task");Console.WriteLine("PLAYER AND LAUNCH CHECKS PASSED; only owned fixture windows were started");
+            var settings=Get<Settings>(window,"settings");DateTimeOffset? actual=null;Func<IProgress<WorkProgress>,CancellationToken,Task<Process>> factory=async(p,ct)=>{p.Report(new("测试：验证账号与准备文件…"));await Task.Delay(400,ct);var process=StartFixture(false);children.Add(process.Id);return process;};Action<DateTimeOffset> recorded=time=>{actual=time;settings.LastPlayed["launch-fixture"]=time;};var launch=CallTask(window,"RunLaunchAsync",new LaunchDiagnostics("测试游戏","Java 版","1.21.1"),"test-only",factory,recorded);Check(Get<System.Collections.ObjectModel.ObservableCollection<LauncherJob>>(window,"jobs").Count==0,"launch preparation is absent from download jobs");Render(window,"底部启动条-准备中",1120,780);Wait(launch);Check(Get<ProgressBar>(window,"launchProgress").IsIndeterminate&&!Get<bool>(window,"launchWindowSeen"),"a running process without its window is not marked startup complete");var processStart=new DateTimeOffset(Get<Process>(window,"launchedGame").StartTime.ToUniversalTime(),TimeSpan.Zero);Check(actual==processStart&&settings.LastPlayed["launch-fixture"]==processStart,"last launch time is the actual process start time");Pump(()=>Get<bool>(window,"launchWindowSeen"),8000);Check(!Get<ProgressBar>(window,"launchProgress").IsIndeterminate&&Get<ProgressBar>(window,"launchProgress").Value==100&&Get<TimeSpan?>(window,"startupDuration")!.Value.TotalSeconds>=1.2,"progress completes only after a delayed real visible window exists");Render(window,"底部启动条-游戏运行",1460,930);Render(window,"底部启动条-游戏运行-最小窗口",1120,780);Pump(()=>Get<Process?>(window,"launchedGame")==null,7000);Check(Get<TextBlock>(window,"launchStatus").Text.Contains("游戏已退出"),"actual process exit ends the running status");string stopped=Get<TextBlock>(window,"launchElapsed").Text;Delay(300);Check(Get<TextBlock>(window,"launchElapsed").Text==stopped,"game elapsed time stops when the process exits");
+            Check(Get<Button>(window,"launchReportButton").Visibility==Visibility.Collapsed,"normal game exit leaves the error report shortcut hidden");
+            Func<IProgress<WorkProgress>,CancellationToken,Task<Process>> failure=(p,ct)=>{var process=StartFixture(true);children.Add(process.Id);return Task.FromResult(process);};Wait(CallTask(window,"RunLaunchAsync",new LaunchDiagnostics("提前退出检查","Java 版","1.21.1"),"test-only",failure,null));Pump(()=>Get<Process?>(window,"launchedGame")==null,6000);Check(!Get<bool>(window,"launchWindowSeen")&&Get<TextBlock>(window,"launchStatus").Text.Contains("未显示窗口即退出"),"early exit is reported as failure before a window instead of successful launch");
+            var early = LaunchErrorReport.ReadLast();
+            Check(early?.Summary.Contains("提前退出检查") == true && early.Summary.Contains("退出码 7") && Get<Button>(window,"launchReportButton").Visibility == Visibility.Visible,"an early exit exposes the saved report with the actual exit code");
+            bool wouldStart=false;Func<IProgress<WorkProgress>,CancellationToken,Task<Process>> cancel=async(p,ct)=>{await Task.Delay(5000,ct);wouldStart=true;return new Process();};var cancelling=CallTask(window,"RunLaunchAsync",new LaunchDiagnostics("取消检查","Java 版","1.21.1"),"test-only",cancel,null);Get<Button>(window,"launchCancel").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Wait(cancelling);Check(!wouldStart&&Get<TextBlock>(window,"launchStatus").Text.Contains("已取消")&&Get<System.Collections.ObjectModel.ObservableCollection<LauncherJob>>(window,"jobs").Count==0,"cancelling preparation never starts a process or creates a download task");
+            Check(Get<Button>(window,"launchReportButton").Visibility == Visibility.Collapsed && early == LaunchErrorReport.ReadLast(),"cancelling preserves the past report without showing it as the current error");
+            CheckReportFlow(window, children);
+            Console.WriteLine("PLAYER AND LAUNCH CHECKS PASSED; only owned fixture windows were started");
         }
         finally{window?.Close();foreach(int id in children)try{using var child=Process.GetProcessById(id);if(!child.HasExited&&Path.GetFileName(child.MainModule?.FileName)=="Checks.exe"){child.Kill(entireProcessTree:true);child.WaitForExit(3000);}}catch(ArgumentException){}SynchronizationContext.SetSynchronizationContext(previous);}
     }
+    static void CheckReportFlow(MainWindow window, List<int> children)
+    {
+        var runtime = new LaunchDiagnostics("游戏内退出检查", "Java 版", "1.21.1");
+        Func<IProgress<WorkProgress>, CancellationToken, Task<Process>> crash = (_, _) =>
+        {
+            runtime.RecordOutput("Caused by: java.lang.OutOfMemoryError: Java heap space");
+            var process = StartFixture(false, crashAfterWindow: true);
+            children.Add(process.Id);
+            return Task.FromResult(process);
+        };
+        Wait(CallTask(window, "RunLaunchAsync", runtime, "test-only", crash, null));
+        Pump(() => Get<Process?>(window, "launchedGame") == null, 9000);
+        var report = LaunchErrorReport.ReadLast();
+        Check(report?.Summary.Contains("游戏运行中异常退出") == true && report.Summary.Contains("退出码 9") &&
+            report.Summary.Contains("游戏内存已用尽"), "a nonzero exit after a real visible window produces a runtime crash report");
+
+        var prepare = new LaunchDiagnostics("部署测试", "Windows 基岩版", "1.21.0.2");
+        Func<IProgress<WorkProgress>, CancellationToken, Task<Process>> fail = async (p, _) =>
+        {
+            p.Report(new("准备 Windows 安装包"));
+            await Task.Delay(60);
+            throw new TimeoutException("等待系统安装超时。");
+        };
+        Wait(CallTask(window, "RunLaunchAsync", prepare, "test-only", fail, null));
+        report = LaunchErrorReport.ReadLast();
+        Check(report?.Summary.Contains("启动准备失败") == true && report.Summary.Contains("TimeoutException") &&
+            report.Details.Contains("准备 Windows 安装包") && Get<Button>(window,"previousReportButton").Visibility == Visibility.Visible,
+            "a Bedrock deployment error is available in the launch bar and About with its failed step");
+        var reopened = new MainWindow { WindowStartupLocation = WindowStartupLocation.Manual, Left = -20000, Top = -20000,
+            ShowActivated = false, ShowInTaskbar = false };
+        try
+        {
+            reopened.Show();
+            Call(reopened, "Navigate", "about");
+            var previous = Get<Button>(reopened, "previousReportButton");
+            bool correctPreview = false;
+            reopened.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
+            {
+                var popup = reopened.OwnedWindows.OfType<LaunchErrorReportWindow>().Single();
+                try
+                {
+                    var layout = (DockPanel)popup.Content;
+                    var preview = layout.Children.OfType<TextBox>().Single();
+                    var actions = ((StackPanel)layout.Children[0]).Children.OfType<WrapPanel>().Single().Children.OfType<Button>();
+                    correctPreview = preview.IsReadOnly && preview.Text.ReplaceLineEndings() == report!.Text.ReplaceLineEndings() &&
+                        actions.Select(b => b.Content).SequenceEqual(new[] { "复制报告", "复制摘要", "导出 TXT…" });
+                }
+                finally { popup.Close(); }
+            }));
+            previous.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Check(previous.IsVisible && correctPreview, "after reopening the launcher, About opens the saved report with the exact export text and all three actions");
+        }
+        finally { reopened.Close(); }
+    }
+
     static byte[] Skin(int height=64)
     {
         byte[] pixels=new byte[64*height*4];void Fill(int x,int y,int w,int h,byte r,byte g,byte b){for(int py=y;py<y+h;py++)for(int px=x;px<x+w;px++){int i=(py*64+px)*4;pixels[i]=b;pixels[i+1]=g;pixels[i+2]=r;pixels[i+3]=255;}}
@@ -54,7 +115,7 @@ static class PlayerLaunchChecks
         public Task<Process> ActivateAsync(BedrockPackage p,IProgress<WorkProgress> progress,CancellationToken ct){Calls.Add("activate");return Task.FromResult(new Process());}
     }
     sealed class SilentProgress:IProgress<WorkProgress>{public void Report(WorkProgress value){}}
-    static Process StartFixture(bool fail){var info=new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory,"Checks.exe")){UseShellExecute=false,CreateNoWindow=true};foreach(string arg in new[]{"--game-window-fixture","--delay=1600",fail?"--exit=500":"--exit=4300"})info.ArgumentList.Add(arg);if(fail)info.ArgumentList.Add("--no-window");return Process.Start(info)!;}
+    static Process StartFixture(bool fail, bool crashAfterWindow = false){var info=new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory,"Checks.exe")){UseShellExecute=false,CreateNoWindow=true};foreach(string arg in new[]{"--game-window-fixture","--delay=1600",fail?"--exit=500":"--exit=4300"})info.ArgumentList.Add(arg);if(fail)info.ArgumentList.Add("--no-window");if(crashAfterWindow)info.ArgumentList.Add("--runtime-error");return Process.Start(info)!;}
     static T Get<T>(MainWindow w,string name)=>(T)typeof(MainWindow).GetField(name,Flags)!.GetValue(w)!;
     static void Call(MainWindow w,string name,params object?[] args)=>typeof(MainWindow).GetMethod(name,Flags)!.Invoke(w,args);
     static Task CallTask(MainWindow w,string name,params object?[] args)=>(Task)typeof(MainWindow).GetMethod(name,Flags)!.Invoke(w,args)!;

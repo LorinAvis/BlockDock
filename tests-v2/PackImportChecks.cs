@@ -51,6 +51,7 @@ static class PackImportChecks
     {
         string root = Path.GetFullPath("work/pack-import-checks/" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
         MrpackChecks(root); NativeFormats(root); PlainInstances(root); PathChecks(root); SizeChecks(root); CancellationChecks(root); LocalVersionChecks(root); FullImportChecks(root);
+        NamedBootstrapInstance(root).GetAwaiter().GetResult();
         Console.WriteLine("PACK IMPORT CHECKS PASSED; synthetic archives and isolated destinations only");
     }
     static void MrpackChecks(string root)
@@ -307,10 +308,69 @@ static class PackImportChecks
             foreach (string file in ownedJobs) if (File.Exists(file)) File.Delete(file);
         }
     }
-    static void InstalledVanilla(Settings settings)
+    static async Task NamedBootstrapInstance(string root)
     {
-        string folder = Path.Combine(settings.JavaRoot, "versions", "1.20.1"); Directory.CreateDirectory(folder);
-        File.WriteAllText(Path.Combine(folder, "1.20.1.json"), """{"id":"1.20.1","type":"release","mainClass":"net.minecraft.client.main.Main","libraries":[]}""");
-        File.WriteAllBytes(Path.Combine(folder, "1.20.1.jar"), Encoding.ASCII.GetBytes("synthetic non-executable client fixture"));
+        var settings = new Settings { JavaRoot = Path.Combine(root, "bootstrap"), JavaPath = Environment.ProcessPath!, Source = "Unconfigured" };
+        InstalledVanilla(settings, "1.21.1");
+        const string loaderId = "neoforge-fixture";
+        const string original = "-DignoreList=client-extra,${version_name}.jar";
+        const string corrected = original + ",1.21.1.jar";
+        string engine = Path.Combine(settings.JavaRoot, "versions", loaderId);
+        Directory.CreateDirectory(engine);
+        string engineFile = Path.Combine(engine, loaderId + ".json");
+        var source = new JsonObject
+        {
+            ["id"] = loaderId, ["inheritsFrom"] = "1.21.1", ["mainClass"] = "cpw.mods.bootstraplauncher.BootstrapLauncher",
+            ["type"] = "release", ["arguments"] = new JsonObject
+            {
+                ["jvm"] = new JsonArray("-cp", "${classpath}", original, "-Ddisplay=${version_name}"),
+                ["game"] = new JsonArray("--version", "${version_name}")
+            }
+        };
+        File.WriteAllText(engineFile, source.ToJsonString());
+        using var launch = new LaunchCore(settings);
+        var game = launch.CreateInstance(loaderId, "1.21.1", "neoforge", "Named Pack (2)");
+        string versionFile = Path.Combine(game.Folder, game.Id + ".json");
+        var expected = JsonNode.Parse(File.ReadAllText(versionFile))!.AsObject();
+        Check(expected["arguments"]!["jvm"]![2]!.ToString() == corrected &&
+              expected["jar"]!.ToString() == "1.21.1" && File.ReadAllText(engineFile) == source.ToJsonString(),
+              "new named NeoForge profiles also exclude the shared client filename without changing the engine profile");
+
+        expected["customSetting"] = "keep this instance setting";
+        var legacy = expected.DeepClone();
+        legacy["arguments"]!["jvm"]![2] = original;
+        File.WriteAllText(versionFile, legacy.ToJsonString());
+        var fixtureAccount = new MicrosoftAccount("Fixture", new string('1', 32), "1", "fixture_access_token", "", DateTimeOffset.MaxValue, "");
+        using var process = await launch.PrepareProcessAsync(game, fixtureAccount, new InlineProgress<WorkProgress>(_ => {}), default, install: false);
+        string arguments = process.StartInfo.Arguments + " " + string.Join(" ", process.StartInfo.ArgumentList);
+        string clientFile = Path.Combine(settings.JavaRoot, "versions", "1.21.1", "1.21.1.jar");
+        Check(arguments.Contains("-DignoreList=client-extra," + game.Id + ".jar,1.21.1.jar") && arguments.Contains(clientFile),
+              "launch preparation expands the instance name and excludes the same parent JAR used on the classpath");
+        Check(JsonNode.DeepEquals(expected, JsonNode.Parse(File.ReadAllText(versionFile))),
+              "launch migrates the legacy profile and preserves unrelated settings");
+        var before = File.GetLastWriteTimeUtc(versionFile);
+        launch.RepairInstanceProfile(game);
+        Check(before == File.GetLastWriteTimeUtc(versionFile), "launch and repair can be repeated without rewriting the profile");
+        File.Delete(Path.Combine(game.Folder, ".blockdock-profile.json"));
+        File.WriteAllText(versionFile, legacy.ToJsonString());
+        launch.RepairInstanceProfile(game);
+        Check(File.ReadAllText(versionFile) == legacy.ToJsonString(), "repair leaves an independently managed profile alone");
+
+        var jvm = source["arguments"]!["jvm"]!.AsArray();
+        var rules = new JsonArray(new JsonObject { ["action"] = "allow", ["os"] = new JsonObject { ["name"] = "windows" } });
+        jvm[2] = new JsonObject { ["rules"] = rules, ["value"] = new JsonArray(original, "-Dother=${version_name}.jar") };
+        File.WriteAllText(engineFile, source.ToJsonString());
+        var conditional = VersionProfiles.Create(settings.JavaRoot, loaderId, "Another Pack")["arguments"]!["jvm"]![2]!;
+        Check(JsonNode.DeepEquals(conditional["rules"], rules) && conditional["value"]![0]!.ToString() == corrected &&
+              conditional["value"]![1]!.ToString() == "-Dother=${version_name}.jar", "conditional JVM arguments retain their rules and unrelated values");
+    }
+
+    static void InstalledVanilla(Settings settings, string version = "1.20.1")
+    {
+        string folder = Path.Combine(settings.JavaRoot, "versions", version);
+        Directory.CreateDirectory(folder);
+        var metadata = new JsonObject { ["id"] = version, ["type"] = "release", ["mainClass"] = "net.minecraft.client.main.Main", ["libraries"] = new JsonArray() };
+        File.WriteAllText(Path.Combine(folder, version + ".json"), metadata.ToJsonString());
+        File.WriteAllBytes(Path.Combine(folder, version + ".jar"), Encoding.ASCII.GetBytes("synthetic non-executable client fixture"));
     }
 }

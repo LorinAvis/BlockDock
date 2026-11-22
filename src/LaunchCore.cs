@@ -145,7 +145,24 @@ public sealed class LaunchCore : IDisposable
     }
     public void RepairInstanceProfile(GameInstance game)
     {
-        string own=Path.Combine(game.Folder,".blockdock-profile.json"),json=Path.Combine(game.Folder,game.Id+".json");if(!File.Exists(own))return;var original=JsonNode.Parse(File.ReadAllText(json))?.AsObject();if(original?["mainClass"]!=null)return;string? source=JsonNode.Parse(File.ReadAllText(own))?["sourceVersion"]?.ToString();if(source==null||source==game.Id)return;var fixedProfile=VersionProfiles.Create(settings.JavaRoot,source,game.Id);string backup=Paths.Safe(Settings.DataPath,"backups/version-profiles/"+Paths.Id(game.Id)+"-"+DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()+".json");Settings.AtomicText(backup,original!.ToJsonString());Settings.AtomicText(json,fixedProfile.ToJsonString());Log?.Invoke("已备份并修复实例版本配置："+game.Name);
+        string marker = Path.Combine(game.Folder, ".blockdock-profile.json");
+        if (!File.Exists(marker)) return;
+        string id = Paths.Id(game.Id);
+        string versionFile = Paths.Safe(game.Folder, id + ".json");
+        var profile = JsonNode.Parse(File.ReadAllText(versionFile)) as JsonObject ?? throw new IOException("实例的版本配置为空。");
+        if (profile["mainClass"] == null)
+        {
+            string? source = JsonNode.Parse(File.ReadAllText(marker))?["sourceVersion"]?.ToString();
+            if (source == null || source == id) return;
+            profile = VersionProfiles.Create(settings.JavaRoot, source, id);
+        }
+        else if (!VersionProfiles.IncludeSharedClientInIgnoreList(profile)) return;
+
+        string backupFolder = Paths.Safe(Settings.DataPath, "backups/version-profiles");
+        Directory.CreateDirectory(backupFolder);
+        File.Copy(versionFile, Paths.Safe(backupFolder, id + "-" + Guid.NewGuid().ToString("N") + ".json"));
+        Settings.AtomicText(versionFile, profile.ToJsonString());
+        Log?.Invoke("已备份并修复实例版本配置：" + game.Name);
     }
     public async Task<Process> PrepareProcessAsync(GameInstance game,MicrosoftAccount account,IProgress<WorkProgress> p,CancellationToken ct,bool install=true)
     {
@@ -155,11 +172,13 @@ public sealed class LaunchCore : IDisposable
     async Task<Process> PrepareSessionAsync(GameInstance game,MSession session,IProgress<WorkProgress> p,CancellationToken ct,bool install)
     {
         if(game.Pending)throw new IOException("这个游戏尚未安装完成，请先修复文件。");
+        ct.ThrowIfCancellationRequested();
+        RepairInstanceProfile(game);
         var launcher=CreateLauncher(game.GameDirectory,true,RequiredJava(game));
         if(install){p.Report(new("准备游戏文件与 Java 运行环境…"));await launcher.InstallAsync(game.Id,new Progress<InstallerProgressChangedEventArgs>(x=>p.Report(new("检查 "+x.Name,x.ProgressedTasks,x.TotalTasks))),new Progress<ByteProgress>(x=>p.Report(new("下载启动所需文件…",Bytes:x.ProgressedBytes,Size:x.TotalBytes))),ct);}
         string? javaPath=string.IsNullOrWhiteSpace(settings.JavaPath)?JavaRuntimes.Select(JavaRuntimes.Detect(),RequiredJava(game))?.Path:settings.JavaPath;
         bool java32=javaPath!=null&&JavaRuntimes.Detect().Any(x=>x.Path.Equals(javaPath,StringComparison.OrdinalIgnoreCase)&&x.Architecture is "x86" or "i386" or "i686");int memory=MemoryAllocation.Resolve(settings,game,java32:java32);Log?.Invoke("游戏内存："+(settings.MemoryMode=="Manual"?"手动 ":"自动 ")+MemoryAllocation.Format(memory));
-        var option=new MLaunchOption{Session=session,MaximumRamMb=memory,MinimumRamMb=512,GameLauncherName="BlockDock",GameLauncherVersion="2.9.0",ScreenWidth=1100,ScreenHeight=700,JavaPath=javaPath};
+        var option=new MLaunchOption{Session=session,MaximumRamMb=memory,MinimumRamMb=512,GameLauncherName="BlockDock",GameLauncherVersion=LauncherVersion.Number,ScreenWidth=1100,ScreenHeight=700,JavaPath=javaPath};
         p.Report(new("正在启动 "+game.Name));var process=await launcher.BuildProcessAsync(game.Id,option,ct);
         process.StartInfo.UseShellExecute=false;process.StartInfo.CreateNoWindow=true;process.StartInfo.RedirectStandardOutput=true;process.StartInfo.RedirectStandardError=true;
         return process;

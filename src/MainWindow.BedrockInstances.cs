@@ -7,7 +7,10 @@ namespace BlockDock;
 public partial class MainWindow
 {
     UIElement BedrockAutoSwitchControl(){var control=new CheckBox{Content="启动时自动切换到所选版本",IsChecked=settings.BedrockAutoSwitch,Foreground=Theme.Text};control.ToolTip="从底部或本页启动时，自动备份并切换 Windows 注册；每个版本继续使用自己的数据目录。";control.Checked+=(_,_)=>{settings.BedrockAutoSwitch=true;if(ready)settings.Save();};control.Unchecked+=(_,_)=>{settings.BedrockAutoSwitch=false;if(ready)settings.Save();};return control;}
-    Task StartBedrockSelectionAsync(BedrockPackage package)=>RunLaunchAsync("基岩版 "+package.Version,"bedrock-system",(p,ct)=>BedrockLaunchFlow.StartAsync(package,settings.BedrockAutoSwitch,p,ct,LockLaunchDeployment),time=>settings.LastPlayed["bedrock:"+BedrockInstances.For(package).Family+":"+BedrockInstances.For(package).Version]=time);
+    Task StartBedrockSelectionAsync(BedrockPackage package) => RunLaunchAsync(
+        new LaunchDiagnostics("基岩版 " + package.Version, "Windows 基岩版", package.Version), "bedrock-system",
+        (p, ct) => BedrockLaunchFlow.StartAsync(package, settings.BedrockAutoSwitch, p, ct, LockLaunchDeployment),
+        time => settings.LastPlayed["bedrock:" + BedrockInstances.For(package).Family + ":" + BedrockInstances.For(package).Version] = time);
     readonly TextBlock bedrockInstanceInfo=new(){TextWrapping=TextWrapping.Wrap,Foreground=Theme.Muted};
     void RefreshBedrockInstanceInfo()
     {

@@ -59,5 +59,9 @@ public partial class MainWindow
         var right=Card(V(Text("角色皮肤",19,true),preview,SkinControls(),Gap(),Button("刷新皮肤",async(_,_)=>await RefreshSkinAsync(true))));var columns=Cols(new(310),new(18),new(1,GridUnitType.Star));Row(columns,left,0);Row(columns,right,0,2);Page("account",Scroll(columns));
     }
     void BuildSettings()=>BuildSettingsDashboard();
-    void BuildAbout()=>Page("about",Scroll(Card(V(Text("BlockDock · "+LauncherVersion.Label,24,true),Hint("Minecraft 第三方启动器 · 方块港 BlockDock"),Gap(),Text("统一管理 Java、基岩版安装包、模组、光影、材质与整合包。"),Gap(),Hint("非 Minecraft 官方产品，未经 Mojang 或 Microsoft 批准，与其无关联。"),Gap(),Text("开源与致谢",18,true),Text("GPL-3.0-only。使用 CmlLib.Core、Forge / NeoForge 安装组件、BedrockLauncher 目录解析组件及 WebView2。"),Gap(),H(Button("开源仓库 ↗",(_,_)=>Open("https://github.com/LorinAvis/BlockDock")),Button("许可证",(_,_)=>Open(PathOf("LICENSE.txt"))))))));
+    void BuildAbout()=>Page("about",Scroll(Card(V(Text("BlockDock · "+LauncherVersion.Label,24,true),
+        Hint("Minecraft 第三方启动器 · 方块港 BlockDock"),Gap(),Text("统一管理 Java、基岩版安装包、模组、光影、材质与整合包。"),
+        H(previousReportButton),Gap(),Hint("非 Minecraft 官方产品，未经 Mojang 或 Microsoft 批准，与其无关联。"),
+        Gap(),Text("开源与致谢",18,true),Text("GPL-3.0-only。使用 CmlLib.Core、Forge / NeoForge 安装组件、BedrockLauncher 目录解析组件及 WebView2。"),
+        Gap(),H(Button("开源仓库 ↗",(_,_)=>Open("https://github.com/LorinAvis/BlockDock")),Button("许可证",(_,_)=>Open(PathOf("LICENSE.txt"))))))));
 }

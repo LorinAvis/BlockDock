@@ -122,8 +122,21 @@ public partial class MainWindow
     async Task PlayAsync(GameInstance? game)
     {
         if(launchPreparing||FocusLaunchedGame())return;if(game is null){MessageBox.Show(this,"请先选择一个 Java 游戏版本。");return;}if(accountBox.SelectedItem is not MicrosoftAccount account){Navigate("account");return;}settings.LastGame=game.Id;
-        await RunLaunchAsync(game.Name,"java:"+settings.JavaRoot,async(p,ct)=>{p.Report(new("验证微软登录与 Java 版权限…"));using var auth=new MicrosoftAccounts();account=await auth.RefreshAsync(account,ct);accounts.RemoveAll(x=>x.Uuid==account.Uuid);accounts.Add(account);MicrosoftAccounts.Save(accounts);using var launch=new LaunchCore(settings){Log=Log};return await launch.StartMicrosoftAsync(game,account,p,ct);},time=>settings.LastPlayed[game.Id]=time);
-    }    void ManageContent(){if(gameList.SelectedItem is GameInstance game)new ContentManagerWindow(game){Owner=this}.ShowDialog();}
+        var report = new LaunchDiagnostics(game.Name, "Java 版", game.Minecraft + " · " + game.LoaderName,
+            game.GameDirectory, account.Name, account.Uuid, account.Xuid);
+        await RunLaunchAsync(report, "java:" + settings.JavaRoot, async (progress, ct) =>
+        {
+            progress.Report(new("验证微软登录与 Java 版权限…"));
+            using var auth = new MicrosoftAccounts();
+            account = await auth.RefreshAsync(account, ct);
+            accounts.RemoveAll(x => x.Uuid == account.Uuid);
+            accounts.Add(account);
+            MicrosoftAccounts.Save(accounts);
+            using var launch = new LaunchCore(settings) { Log = line => { report.RecordOutput(line); Log(line); } };
+            return await launch.StartMicrosoftAsync(game, account, progress, ct);
+        }, time => settings.LastPlayed[game.Id] = time);
+    }
+    void ManageContent(){if(gameList.SelectedItem is GameInstance game)new ContentManagerWindow(game){Owner=this}.ShowDialog();}
     void OpenGameFolder(){if(gameList.SelectedItem is GameInstance game)Open(game.GameDirectory);}
     async Task RepairGameAsync()
     {
